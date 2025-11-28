@@ -104,7 +104,9 @@ export default function History() {
       form.flatten();
 
       const filledPdfBytes = await pdfDoc.save();
-      const blob = new Blob([filledPdfBytes], { type: 'application/pdf' });
+      const ab = new ArrayBuffer(filledPdfBytes.byteLength);
+      new Uint8Array(ab).set(filledPdfBytes);   
+      const blob = new Blob([ab], { type: "application/pdf" });
       return URL.createObjectURL(blob);
     } catch (error) {
       console.error('PDF生成エラー:', error);
