@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  univer-server:
+    image: univer-acr-registry.cn-shenzhen.cr.aliyuncs.com/release/univer-server:latest
+    container_name: univer-server
+    ports:
+      - "3010:3010"
+    environment:
+      - NODE_ENV=production
+      - SERVER_PORT=3010
+    volumes:
+      - ./docker-compose/configs/license.txt:/app/license.txt:ro
+      - ./docker-compose/configs/licenseKey.txt:/app/licenseKey.txt:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
