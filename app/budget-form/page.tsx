@@ -227,6 +227,7 @@ export default function BudgetFormPage() {
   };
 
   const handleSave = async () => {
+    console.log(JSON.stringify(formData, null, 2));
     setLoading(true);
     try {
       const response = await fetch("/予算書フォーマット.pdf");
