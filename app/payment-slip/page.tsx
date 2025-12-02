@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import {
   PayRow,
   PaymentHeader,
@@ -10,7 +10,11 @@ import {
   createInitialRows,
   createEmptyRow,
   savePaymentSlip,
+  getNextMonth20th,
 } from "@/lib/payment-slip";
+import { useOcrData } from "@/app/contexts/OcrDataContext";
+import { useAuth, DEMO_USERS } from "@/app/contexts/AuthContext";
+import { useData } from "@/app/contexts/DataContext";
 
 // 共通スタイル
 const inputStyle: React.CSSProperties = {
@@ -38,17 +42,6 @@ const labelStyle: React.CSSProperties = {
   fontSize: '0.8rem',
   fontWeight: 600,
   color: '#1a1c20',
-};
-
-const requiredBadgeStyle: React.CSSProperties = {
-  display: 'inline-block',
-  marginLeft: '0.375rem',
-  padding: '0.125rem 0.375rem',
-  fontSize: '0.65rem',
-  fontWeight: 700,
-  color: '#fff',
-  backgroundColor: '#0d56c9',
-  borderRadius: '0.25rem',
 };
 
 const cardStyle: React.CSSProperties = {
@@ -81,15 +74,123 @@ const buttonStyle: React.CSSProperties = {
 };
 
 export default function PaymentSlipPage() {
+  const { ocrData, clearOcrData } = useOcrData();
+  const { currentUser } = useAuth();
+  const { addSubmission } = useData();
   const [h, setH] = useState<PaymentHeader>(createInitialHeader);
   const [rows, setRows] = useState<PayRow[]>(() => createInitialRows(5));
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<SaveResult | null>(null);
 
+  // 請求書ファイル情報（OCRから引き継ぎ）
+  const [invoiceFileUrl, setInvoiceFileUrl] = useState<string | null>(null);
+  const [invoiceFileName, setInvoiceFileName] = useState<string | null>(null);
+
+  // 申請モーダル用
+  const [showModal, setShowModal] = useState(false);
+  const [selectedApprover, setSelectedApprover] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'invoice' | 'slip'>('invoice');
+
+  const approvers = DEMO_USERS.filter(u => u.role === 'manager');
+
+  // OCRデータがあれば反映
+  useEffect(() => {
+    if (ocrData) {
+      // ヘッダー情報を更新
+      if (ocrData.payeeCompanyName) {
+        setH(prev => ({ ...prev, payee: ocrData.payeeCompanyName || '' }));
+      }
+
+      // 明細行に反映
+      const items = ocrData.invoiceItems || [];
+      if (items.length > 0) {
+        setRows(prev => {
+          // 必要な行数を確保
+          const newRows = [...prev];
+          while (newRows.length < items.length) {
+            newRows.push(createEmptyRow(newRows.length));
+          }
+
+          // 免税判定: invoiceRegNoがあれば免チェックON
+          const isExempt = !!ocrData.invoiceRegNo;
+
+          items.forEach((item, idx) => {
+            // 金額を数値化して10%税込み・消費税を計算
+            const rawAmount = item.itemAmount?.replace(/[¥,]/g, '') || '0';
+            const amount = parseFloat(rawAmount) || 0;
+            const taxAmount = Math.round(amount * 0.1);
+            const taxIncluded = Math.round(amount * 1.1);
+
+            newRows[idx] = {
+              ...newRows[idx],
+              // 品目を摘要に
+              summary: item.itemDescription || '',
+              // 税込み金額を査定金額に
+              assessedAmount: String(taxIncluded),
+              // 消費税額
+              taxAmount: String(taxAmount),
+              // 免税チェック
+              exempt: isExempt,
+              // 消税区分: 内税
+              taxType: '内税',
+              // 課税区分: 標準(10%)
+              taxKbn: '標準(10%)',
+              // 適格請求書発行事業者登録番号（1行目のみ）
+              businessRegNo: idx === 0 && ocrData.invoiceRegNo ? ocrData.invoiceRegNo : newRows[idx].businessRegNo,
+            };
+          });
+
+          return newRows;
+        });
+      } else {
+        // 明細がない場合は従来通り小計・消費税を1行目に
+        const isExempt = !!ocrData.invoiceRegNo;
+        setRows(prev => {
+          const newRows = [...prev];
+          if (newRows.length > 0) {
+            if (ocrData.subtotalAmount) {
+              const rawAmount = ocrData.subtotalAmount.replace(/[¥,]/g, '');
+              const amount = parseFloat(rawAmount) || 0;
+              const taxAmount = Math.round(amount * 0.1);
+              const taxIncluded = Math.round(amount * 1.1);
+              newRows[0] = {
+                ...newRows[0],
+                assessedAmount: String(taxIncluded),
+                taxAmount: String(taxAmount),
+              };
+            }
+            newRows[0] = {
+              ...newRows[0],
+              exempt: isExempt,
+              taxType: '内税',
+              taxKbn: '標準(10%)',
+            };
+            if (ocrData.invoiceRegNo) {
+              newRows[0] = { ...newRows[0], businessRegNo: ocrData.invoiceRegNo };
+            }
+          }
+          return newRows;
+        });
+      }
+
+      // 請求書ファイル情報を保存
+      if (ocrData.invoiceFileUrl) {
+        setInvoiceFileUrl(ocrData.invoiceFileUrl);
+        setInvoiceFileName(ocrData.invoiceFileName || null);
+      }
+
+      // 使用後はクリア
+      clearOcrData();
+    }
+  }, [ocrData, clearOcrData]);
+
   const totals = useMemo(() => {
-    const assessed = rows.reduce((s, r) => s + toNum(r.assessedAmount), 0);
-    const tax = rows.reduce((s, r) => s + toNum(r.taxAmount), 0);
-    const pay = assessed + tax;
+    const assessedTotal = rows.reduce((s, r) => s + toNum(r.assessedAmount), 0); // 税込み合計
+    const tax = rows.reduce((s, r) => s + toNum(r.taxAmount), 0); // 消費税合計
+    const assessed = assessedTotal - tax; // 税抜き = 税込み - 消費税
+    const pay = assessedTotal; // 支払金額 = 税込み合計
     return { assessed, tax, pay };
   }, [rows]);
 
@@ -103,6 +204,47 @@ export default function PaymentSlipPage() {
 
     setTimeout(() => setSaveResult(null), 3000);
   }, [h, rows, totals]);
+
+  // 申請モーダルを開く
+  const handleOpenModal = () => {
+    setShowModal(true);
+    setIsSubmitted(false);
+    if (approvers.length > 0) {
+      setSelectedApprover(approvers[0].id);
+    }
+  };
+
+  // 申請モーダルを閉じる
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setIsSubmitted(false);
+  };
+
+  // 申請を実行
+  const handleSubmit = async () => {
+    if (!selectedApprover || !currentUser) return;
+
+    setIsSubmitting(true);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    addSubmission({
+      applicantId: currentUser.id,
+      applicantName: currentUser.name,
+      type: '支払伝票',
+      title: `${h.slipNo} - ${h.payee || '支払先未設定'}`,
+      status: 'pending',
+      data: {
+        headerJson: JSON.stringify(h),
+        rowsJson: JSON.stringify(rows),
+        totalsJson: JSON.stringify(totals),
+        invoiceFileName: invoiceFileName || '',
+      },
+      assignedTo: selectedApprover,
+    });
+
+    setIsSubmitting(false);
+    setIsSubmitted(true);
+  };
 
   const addRow = () => {
     setRows((prev) => [...prev, createEmptyRow(prev.length)]);
@@ -133,32 +275,24 @@ export default function PaymentSlipPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button style={{ ...buttonStyle, backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: '#fff' }}>
-              検索
-            </button>
-            <button style={{ ...buttonStyle, backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: '#fff' }}>
-              プレビュー
-            </button>
-            <button style={{ ...buttonStyle, backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: '#fff' }}>
-              印刷
-            </button>
-            <button style={{ ...buttonStyle, backgroundColor: '#dc2626', color: '#fff' }}>
-              削除
-            </button>
-            <button style={{ ...buttonStyle, backgroundColor: '#6b7280', color: '#fff' }}>
-              クリア
-            </button>
             <button
               onClick={handleSave}
               disabled={saving}
               style={{
                 ...buttonStyle,
-                backgroundColor: saving ? '#93c5fd' : '#0d56c9',
+                backgroundColor: saving ? '#9ca3af' : '#6b7280',
                 color: '#fff',
                 cursor: saving ? 'not-allowed' : 'pointer',
+                opacity: saving ? 0.7 : 1,
               }}
             >
               {saving ? '保存中...' : '保存'}
+            </button>
+            <button onClick={handleOpenModal} style={{ ...buttonStyle, backgroundColor: '#10b981', color: '#fff' }}>
+              申請
+            </button>
+            <button style={{ ...buttonStyle, backgroundColor: '#0d56c9', color: '#fff' }}>
+              振替伝票入力に進む
             </button>
           </div>
         </div>
@@ -197,7 +331,6 @@ export default function PaymentSlipPage() {
                 <div>
                   <label style={labelStyle}>
                     伝票No.
-                    <span style={requiredBadgeStyle}>必須</span>
                   </label>
                   <input
                     type="text"
@@ -209,7 +342,6 @@ export default function PaymentSlipPage() {
                 <div>
                   <label style={labelStyle}>
                     伝票日付
-                    <span style={requiredBadgeStyle}>必須</span>
                   </label>
                   <input
                     type="date"
@@ -217,6 +349,19 @@ export default function PaymentSlipPage() {
                     onChange={(e) => setH((x) => ({ ...x, slipDate: e.target.value }))}
                     style={inputStyle}
                   />
+                </div>
+                <div>
+                  <label style={labelStyle}>
+                    定時/臨時
+                  </label>
+                  <select
+                    value={h.paymentType}
+                    onChange={(e) => setH((x) => ({ ...x, paymentType: e.target.value }))}
+                    style={selectStyle}
+                  >
+                    <option value="定時">定時</option>
+                    <option value="臨時">臨時</option>
+                  </select>
                 </div>
                 <div>
                   <label style={labelStyle}>参照元伝票</label>
@@ -237,7 +382,6 @@ export default function PaymentSlipPage() {
                 <div>
                   <label style={labelStyle}>
                     支払先
-                    <span style={requiredBadgeStyle}>必須</span>
                   </label>
                   <input
                     type="text"
@@ -250,7 +394,6 @@ export default function PaymentSlipPage() {
                 <div>
                   <label style={labelStyle}>
                     支払管理部門
-                    <span style={requiredBadgeStyle}>必須</span>
                   </label>
                   <input
                     type="text"
@@ -262,13 +405,25 @@ export default function PaymentSlipPage() {
                 </div>
                 <div>
                   <label style={labelStyle}>支払条件</label>
-                  <input
-                    type="text"
-                    value={h.payTerms}
-                    onChange={(e) => setH((x) => ({ ...x, payTerms: e.target.value }))}
-                    placeholder="例: 月末締 翌月20日払"
-                    style={inputStyle}
-                  />
+                  {h.paymentType === '定時' ? (
+                    <input
+                      type="text"
+                      value={`${getNextMonth20th()} 現金 100%`}
+                      readOnly
+                      style={{ ...inputStyle, backgroundColor: '#f3f4f6', color: '#6b7280' }}
+                    />
+                  ) : (
+                    <select
+                      value={h.payTerms}
+                      onChange={(e) => setH((x) => ({ ...x, payTerms: e.target.value }))}
+                      style={selectStyle}
+                    >
+                      <option value="">選択してください</option>
+                      <option value="10日">10日</option>
+                      <option value="20日">20日</option>
+                      <option value="末日">末日</option>
+                    </select>
+                  )}
                 </div>
               </div>
 
@@ -453,9 +608,8 @@ export default function PaymentSlipPage() {
                               style={{ ...selectStyle, padding: '0.375rem' }}
                             >
                               <option value="">-</option>
-                              <option value="課税">課税</option>
-                              <option value="非課税">非課税</option>
-                              <option value="免税">免税</option>
+                              <option value="内税">内税</option>
+                              <option value="外税">外税</option>
                             </select>
                           </td>
                           <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
@@ -605,6 +759,119 @@ export default function PaymentSlipPage() {
           <p style={{ margin: 0, fontSize: '0.8rem', color: '#686e78' }}>ショートカット: F2=印刷 / F5=保存 / F12=検索</p>
         </div>
       </footer>
+
+      {/* 申請モーダル */}
+      {showModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={handleCloseModal}>
+          <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', width: '95%', maxWidth: '1200px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #dde5f4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700, color: '#1a1c20' }}>支払伝票 申請確認</h2>
+              <button style={{ width: 32, height: 32, border: 'none', backgroundColor: 'transparent', fontSize: '1.5rem', cursor: 'pointer', color: '#686e78' }} onClick={handleCloseModal}>×</button>
+            </div>
+
+            {isSubmitted ? (
+              <div style={{ padding: '3rem', textAlign: 'center' }}>
+                <div style={{ padding: '1rem', backgroundColor: '#d1fae5', borderRadius: '0.5rem', color: '#065f46', fontSize: '0.95rem' }}>
+                  申請が完了しました。承認者に通知されました。
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* タブ */}
+                <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4', backgroundColor: '#f8f9fa' }}>
+                  <button
+                    onClick={() => setActiveTab('invoice')}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      border: 'none',
+                      backgroundColor: activeTab === 'invoice' ? '#fff' : 'transparent',
+                      color: activeTab === 'invoice' ? '#0d56c9' : '#686e78',
+                      borderBottom: activeTab === 'invoice' ? '2px solid #0d56c9' : '2px solid transparent',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    請求書 {invoiceFileName && <span style={{ fontWeight: 400 }}>({invoiceFileName})</span>}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('slip')}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      border: 'none',
+                      backgroundColor: activeTab === 'slip' ? '#fff' : 'transparent',
+                      color: activeTab === 'slip' ? '#0d56c9' : '#686e78',
+                      borderBottom: activeTab === 'slip' ? '2px solid #0d56c9' : '2px solid transparent',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    支払伝票
+                  </button>
+                </div>
+
+                {/* PDFプレビュー */}
+                <div style={{ flex: 1, overflow: 'auto', padding: '1rem' }}>
+                  <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {activeTab === 'invoice' && (
+                      invoiceFileUrl ? (
+                        <iframe
+                          src={invoiceFileUrl}
+                          style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
+                          title="請求書"
+                        />
+                      ) : (
+                        <div style={{ color: '#686e78', fontSize: '0.9rem' }}>請求書がありません</div>
+                      )
+                    )}
+                    {activeTab === 'slip' && (
+                      <iframe
+                        src="/支払伝票のみ.pdf"
+                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
+                        title="支払伝票"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* 申請先選択 */}
+                <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #dde5f4', backgroundColor: '#f8f9fa' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>申請先を選択</label>
+                  <select
+                    value={selectedApprover}
+                    onChange={(e) => setSelectedApprover(e.target.value)}
+                    style={{ width: '100%', maxWidth: '300px', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff' }}
+                  >
+                    {approvers.map((approver) => (
+                      <option key={approver.id} value={approver.id}>
+                        {approver.name}（{approver.department}）
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #dde5f4', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              {isSubmitted ? (
+                <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={handleCloseModal}>閉じる</button>
+              ) : (
+                <>
+                  <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: 'transparent', border: '1px solid #dde5f4', color: '#686e78', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={handleCloseModal}>キャンセル</button>
+                  <button
+                    style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: isSubmitting ? '#9ca3af' : '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting || !selectedApprover}
+                  >
+                    {isSubmitting ? '申請中...' : '申請する'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -24,6 +24,7 @@ export type PayRow = {
 export type PaymentHeader = {
   slipNo: string;
   slipDate: string;
+  paymentType: string;
   payee: string;
   payDept: string;
   payTerms: string;
@@ -50,13 +51,42 @@ export const toNum = (v: string): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+// 伝票番号のカウンター（実際はDBなどで管理）
+let slipCounter = 1;
+
+// 当月末日を取得
+const getEndOfMonth = (): string => {
+  const now = new Date();
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return lastDay.toISOString().split('T')[0];
+};
+
+// 伝票番号を生成（年月 + 4桁連番）
+const generateSlipNo = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const seq = String(slipCounter++).padStart(4, '0');
+  return `${year}${month}${seq}`;
+};
+
+// 翌月20日を取得
+export const getNextMonth20th = (): string => {
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 20);
+  const year = nextMonth.getFullYear();
+  const month = String(nextMonth.getMonth() + 1).padStart(2, '0');
+  return `${year}/${month}/20`;
+};
+
 // 初期値
 export const createInitialHeader = (): PaymentHeader => ({
-  slipNo: "2025110123",
-  slipDate: "2025-11-30",
+  slipNo: generateSlipNo(),
+  slipDate: getEndOfMonth(),
+  paymentType: "定時",
   payee: "",
-  payDept: "",
-  payTerms: "",
+  payDept: "本社支払",
+  payTerms: `${getNextMonth20th()} 現金 100%`,
   payeeNote: "",
   taxFirstPeriod: "",
   taxOptChange: false,

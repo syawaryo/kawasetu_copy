@@ -3,6 +3,7 @@ import { Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./contexts/AuthContext";
 import { DataProvider } from "./contexts/DataContext";
+import { OcrDataProvider } from "./contexts/OcrDataContext";
 import ClientLayout from "./components/ClientLayout";
 
 const notoSansJP = Noto_Sans_JP({
@@ -26,7 +27,9 @@ export default function RootLayout({
       <body className={notoSansJP.className}>
         <AuthProvider>
           <DataProvider>
-            <ClientLayout>{children}</ClientLayout>
+            <OcrDataProvider>
+              <ClientLayout>{children}</ClientLayout>
+            </OcrDataProvider>
           </DataProvider>
         </AuthProvider>
       </body>

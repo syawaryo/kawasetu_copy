@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { analyzeDocument, OcrResponse, OcrField } from "@/lib/ocr";
+import { useOcrData, OcrExtractedData } from "@/app/contexts/OcrDataContext";
 import * as pdfjsLib from "pdfjs-dist";
 
 // PDF.js workerの設定
@@ -165,6 +167,8 @@ function BoundingBoxOverlay({
 }
 
 export default function OcrPage() {
+  const router = useRouter();
+  const { setOcrData } = useOcrData();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isPdf, setIsPdf] = useState(false);
@@ -179,6 +183,67 @@ export default function OcrPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+
+  // 適格請求書発行事業者登録番号を整形 (Tあればつける + 数字13桁)
+  const formatInvoiceRegNo = (raw: string | undefined): string | undefined => {
+    if (!raw) return undefined;
+    const hasT = /[Tt]/.test(raw);
+    const digits = raw.replace(/[^0-9]/g, '').slice(0, 13);
+    if (digits.length !== 13) return undefined;
+    return hasT ? `T${digits}` : digits;
+  };
+
+  // OCR結果をContextに保存して遷移
+  const handleGoToPaymentSlip = useCallback(() => {
+    if (result?.success && result.data) {
+      const data = result.data;
+      const extracted: OcrExtractedData = {
+        subtotalAmount: data.subtotalAmount?.content,
+        consumptionTaxAmount: data.consumptionTaxAmount?.content,
+        totalAmount: data.totalAmount?.content,
+        payeeCompanyName: data.payeeCompanyName?.content,
+        payeePostalCode: data.payeePostalCode?.content,
+        payeeAddress: data.payeeAddress?.content,
+        payeePhoneNumber: data.payeePhoneNumber?.content,
+        payeeEmailAddress: data.payeeEmailAddress?.content,
+        bankName: data.bankName?.content,
+        bankBranchName: data.bankBranchName?.content,
+        bankAccountType: data.bankAccountType?.content,
+        bankAccountNumber: data.bankAccountNumber?.content,
+        payeeCompanyNameKana: data.payeeCompanyNameKana?.content,
+        paymentDueDate: data.paymentDueDate?.content,
+        invoiceRegNo: formatInvoiceRegNo(data.invoiceRegNo?.content),
+        invoiceItems: [],
+      };
+
+      // 明細行を抽出
+      const itemKeys = Object.keys(data).filter(k => k.startsWith('invoiceItems['));
+      const itemMap: Record<number, Record<string, string>> = {};
+      itemKeys.forEach(key => {
+        const match = key.match(/^invoiceItems\[(\d+)\]\.(\w+)$/);
+        if (match) {
+          const idx = parseInt(match[1], 10);
+          const field = match[2];
+          if (!itemMap[idx]) itemMap[idx] = {};
+          itemMap[idx][field] = data[key]?.content || '';
+        }
+      });
+      extracted.invoiceItems = Object.keys(itemMap)
+        .map(k => parseInt(k, 10))
+        .sort((a, b) => a - b)
+        .map(idx => itemMap[idx]);
+
+      // 請求書ファイルをBlobURLで保存
+      if (file) {
+        const fileUrl = URL.createObjectURL(file);
+        extracted.invoiceFileUrl = fileUrl;
+        extracted.invoiceFileName = file.name;
+      }
+
+      setOcrData(extracted);
+    }
+    router.push('/payment-slip');
+  }, [result, file, setOcrData, router]);
 
   // PDFをCanvasにレンダリング
   const renderPdf = useCallback(async (pdfDoc: pdfjsLib.PDFDocumentProxy) => {
@@ -289,9 +354,12 @@ export default function OcrPage() {
               <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.8 }}>Document Intelligence</p>
             </div>
           </div>
-          <a href="/payment-slip" style={{ ...buttonStyle, backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', textDecoration: 'none' }}>
-            支払伝票入力へ
-          </a>
+          <button
+            onClick={handleGoToPaymentSlip}
+            style={{ ...buttonStyle, backgroundColor: '#10b981', color: '#fff' }}
+          >
+            支払伝票入力に進む
+          </button>
         </div>
       </header>
 
