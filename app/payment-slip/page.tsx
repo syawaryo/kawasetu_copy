@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import {
   PayRow,
   PaymentHeader,
@@ -367,195 +367,215 @@ export default function PaymentSlipPage() {
           </div>
           <div style={{ padding: '1rem' }}>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', minWidth: '2000px', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+              <table style={{ width: '100%', minWidth: '1400px', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#132942', color: '#fff' }}>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'center', borderBottom: '1px solid #1e3a5f', width: 60 }}>No.</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #1e3a5f', minWidth: 140 }}>科目</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #1e3a5f', minWidth: 120 }}>部門</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'center', borderBottom: '1px solid #1e3a5f', width: 50 }}>免</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #1e3a5f', minWidth: 160 }}>取引先</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #1e3a5f', minWidth: 160 }}>工事</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #1e3a5f', minWidth: 120 }}>JV負担区分</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #1e3a5f', minWidth: 140 }}>引合物件</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #1e3a5f', minWidth: 120 }}>費目</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #1e3a5f', minWidth: 120 }}>工種</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #1e3a5f', minWidth: 100 }}>消税区分</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #1e3a5f', minWidth: 100 }}>課税区分</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'right', borderBottom: '1px solid #1e3a5f', minWidth: 120 }}>査定金額</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'right', borderBottom: '1px solid #1e3a5f', minWidth: 100 }}>消費税額</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'right', borderBottom: '1px solid #1e3a5f', minWidth: 80 }}>立替税率</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'right', borderBottom: '1px solid #1e3a5f', minWidth: 100 }}>立替消費税</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #1e3a5f', minWidth: 150 }}>事業者登録番号</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #1e3a5f', minWidth: 180 }}>摘要</th>
-                    <th style={{ padding: '0.75rem', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #1e3a5f', minWidth: 130 }}>JV負担先</th>
+                    <th rowSpan={2} style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'center', border: '1px solid #1e3a5f', width: 50 }}>No.</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 140 }}>科目</th>
+                    <th rowSpan={2} style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'center', border: '1px solid #1e3a5f', width: 40 }}>免</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 150 }}>取引先</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 120 }}>JV負担区分</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 100 }}>費目</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 100 }}>消税区分</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f', minWidth: 120 }}>査定金額</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f', minWidth: 100 }}>立替税率</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 150 }}>事業者登録番号</th>
+                  </tr>
+                  <tr style={{ backgroundColor: '#1e3a5f', color: '#fff' }}>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 140 }}>部門</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 150 }}>工事</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 120 }}>引合物件</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 100 }}>工種</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 100 }}>課税区分</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f', minWidth: 120 }}>消費税額</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f', minWidth: 100 }}>立替消費税</th>
+                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 150 }}>JV負担先 / 摘要</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, idx) => (
-                    <tr key={r.no} style={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f8f9fa' }}>
-                      <td style={{ padding: '0.375rem', borderBottom: '1px solid #f0f2f7', textAlign: 'center', fontFamily: 'monospace', color: '#686e78' }}>
-                        {r.no}
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.accountTitle}
-                          onChange={(e) => updateRow(idx, "accountTitle", e.target.value)}
-                          style={{ ...inputStyle, padding: '0.375rem' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.department}
-                          onChange={(e) => updateRow(idx, "department", e.target.value)}
-                          style={{ ...inputStyle, padding: '0.375rem' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7', textAlign: 'center' }}>
-                        <input
-                          type="checkbox"
-                          checked={r.exempt}
-                          onChange={(e) => updateRow(idx, "exempt", e.target.checked)}
-                          style={{ width: 16, height: 16, cursor: 'pointer' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.partner}
-                          onChange={(e) => updateRow(idx, "partner", e.target.value)}
-                          style={{ ...inputStyle, padding: '0.375rem' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.project}
-                          onChange={(e) => updateRow(idx, "project", e.target.value)}
-                          style={{ ...inputStyle, padding: '0.375rem' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.jvShareType}
-                          onChange={(e) => updateRow(idx, "jvShareType", e.target.value)}
-                          style={{ ...inputStyle, padding: '0.375rem' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.inquiry}
-                          onChange={(e) => updateRow(idx, "inquiry", e.target.value)}
-                          style={{ ...inputStyle, padding: '0.375rem' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.expense}
-                          onChange={(e) => updateRow(idx, "expense", e.target.value)}
-                          style={{ ...inputStyle, padding: '0.375rem' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.workType}
-                          onChange={(e) => updateRow(idx, "workType", e.target.value)}
-                          style={{ ...inputStyle, padding: '0.375rem' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <select
-                          value={r.taxType}
-                          onChange={(e) => updateRow(idx, "taxType", e.target.value)}
-                          style={{ ...selectStyle, padding: '0.375rem' }}
-                        >
-                          <option value="">-</option>
-                          <option value="課税">課税</option>
-                          <option value="非課税">非課税</option>
-                          <option value="免税">免税</option>
-                        </select>
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <select
-                          value={r.taxKbn}
-                          onChange={(e) => updateRow(idx, "taxKbn", e.target.value)}
-                          style={{ ...selectStyle, padding: '0.375rem' }}
-                        >
-                          <option value="">-</option>
-                          <option value="標準(10%)">標準(10%)</option>
-                          <option value="軽減(8%)">軽減(8%)</option>
-                          <option value="対象外">対象外</option>
-                        </select>
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.assessedAmount}
-                          onChange={(e) => updateRow(idx, "assessedAmount", e.target.value)}
-                          placeholder="0"
-                          style={{ ...inputStyle, padding: '0.375rem', textAlign: 'right', fontFamily: 'monospace' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.taxAmount}
-                          onChange={(e) => updateRow(idx, "taxAmount", e.target.value)}
-                          placeholder="0"
-                          style={{ ...inputStyle, padding: '0.375rem', textAlign: 'right', fontFamily: 'monospace' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.advanceTaxRate}
-                          onChange={(e) => updateRow(idx, "advanceTaxRate", e.target.value)}
-                          placeholder="%"
-                          style={{ ...inputStyle, padding: '0.375rem', textAlign: 'right', fontFamily: 'monospace' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.advanceTaxAmount}
-                          onChange={(e) => updateRow(idx, "advanceTaxAmount", e.target.value)}
-                          placeholder="0"
-                          style={{ ...inputStyle, padding: '0.375rem', textAlign: 'right', fontFamily: 'monospace' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.businessRegNo}
-                          onChange={(e) => updateRow(idx, "businessRegNo", e.target.value)}
-                          placeholder="T0000000000000"
-                          style={{ ...inputStyle, padding: '0.375rem', fontFamily: 'monospace' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.summary}
-                          onChange={(e) => updateRow(idx, "summary", e.target.value)}
-                          style={{ ...inputStyle, padding: '0.375rem' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                        <input
-                          type="text"
-                          value={r.jvPayTo}
-                          onChange={(e) => updateRow(idx, "jvPayTo", e.target.value)}
-                          style={{ ...inputStyle, padding: '0.375rem' }}
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                  {rows.map((r, idx) => {
+                    const bgColor = idx % 2 === 0 ? '#fff' : '#f8f9fa';
+                    return (
+                      <React.Fragment key={r.no}>
+                        {/* 1行目 */}
+                        <tr style={{ backgroundColor: bgColor }}>
+                          <td rowSpan={2} style={{ padding: '0.25rem', border: '1px solid #e5e7eb', textAlign: 'center', fontFamily: 'monospace', color: '#686e78', verticalAlign: 'middle' }}>
+                            {r.no}
+                          </td>
+                          <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb', borderLeft: '1px solid #e5e7eb' }}>
+                            <input
+                              type="text"
+                              value={r.accountTitle}
+                              onChange={(e) => updateRow(idx, "accountTitle", e.target.value)}
+                              placeholder="科目"
+                              style={{ ...inputStyle, padding: '0.375rem' }}
+                            />
+                          </td>
+                          <td rowSpan={2} style={{ padding: '0.25rem', border: '1px solid #e5e7eb', textAlign: 'center', verticalAlign: 'middle' }}>
+                            <input
+                              type="checkbox"
+                              checked={r.exempt}
+                              onChange={(e) => updateRow(idx, "exempt", e.target.checked)}
+                              style={{ width: 16, height: 16, cursor: 'pointer' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <input
+                              type="text"
+                              value={r.partner}
+                              onChange={(e) => updateRow(idx, "partner", e.target.value)}
+                              placeholder="取引先"
+                              style={{ ...inputStyle, padding: '0.375rem' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <input
+                              type="text"
+                              value={r.jvShareType}
+                              onChange={(e) => updateRow(idx, "jvShareType", e.target.value)}
+                              placeholder="JV負担区分"
+                              style={{ ...inputStyle, padding: '0.375rem' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <input
+                              type="text"
+                              value={r.expense}
+                              onChange={(e) => updateRow(idx, "expense", e.target.value)}
+                              placeholder="費目"
+                              style={{ ...inputStyle, padding: '0.375rem' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <select
+                              value={r.taxType}
+                              onChange={(e) => updateRow(idx, "taxType", e.target.value)}
+                              style={{ ...selectStyle, padding: '0.375rem' }}
+                            >
+                              <option value="">-</option>
+                              <option value="課税">課税</option>
+                              <option value="非課税">非課税</option>
+                              <option value="免税">免税</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <input
+                              type="text"
+                              value={r.assessedAmount}
+                              onChange={(e) => updateRow(idx, "assessedAmount", e.target.value)}
+                              placeholder="0"
+                              style={{ ...inputStyle, padding: '0.375rem', textAlign: 'right', fontFamily: 'monospace' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <input
+                              type="text"
+                              value={r.advanceTaxRate}
+                              onChange={(e) => updateRow(idx, "advanceTaxRate", e.target.value)}
+                              placeholder="%"
+                              style={{ ...inputStyle, padding: '0.375rem', textAlign: 'right', fontFamily: 'monospace' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <input
+                              type="text"
+                              value={r.businessRegNo}
+                              onChange={(e) => updateRow(idx, "businessRegNo", e.target.value)}
+                              placeholder="T0000000000000"
+                              style={{ ...inputStyle, padding: '0.375rem', fontFamily: 'monospace' }}
+                            />
+                          </td>
+                        </tr>
+                        {/* 2行目 */}
+                        <tr style={{ backgroundColor: bgColor }}>
+                          <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb', borderLeft: '1px solid #e5e7eb' }}>
+                            <input
+                              type="text"
+                              value={r.department}
+                              onChange={(e) => updateRow(idx, "department", e.target.value)}
+                              placeholder="部門"
+                              style={{ ...inputStyle, padding: '0.375rem' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <input
+                              type="text"
+                              value={r.project}
+                              onChange={(e) => updateRow(idx, "project", e.target.value)}
+                              placeholder="工事"
+                              style={{ ...inputStyle, padding: '0.375rem' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <input
+                              type="text"
+                              value={r.inquiry}
+                              onChange={(e) => updateRow(idx, "inquiry", e.target.value)}
+                              placeholder="引合物件"
+                              style={{ ...inputStyle, padding: '0.375rem' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <input
+                              type="text"
+                              value={r.workType}
+                              onChange={(e) => updateRow(idx, "workType", e.target.value)}
+                              placeholder="工種"
+                              style={{ ...inputStyle, padding: '0.375rem' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <select
+                              value={r.taxKbn}
+                              onChange={(e) => updateRow(idx, "taxKbn", e.target.value)}
+                              style={{ ...selectStyle, padding: '0.375rem' }}
+                            >
+                              <option value="">-</option>
+                              <option value="標準(10%)">標準(10%)</option>
+                              <option value="軽減(8%)">軽減(8%)</option>
+                              <option value="対象外">対象外</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <input
+                              type="text"
+                              value={r.taxAmount}
+                              onChange={(e) => updateRow(idx, "taxAmount", e.target.value)}
+                              placeholder="0"
+                              style={{ ...inputStyle, padding: '0.375rem', textAlign: 'right', fontFamily: 'monospace' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <input
+                              type="text"
+                              value={r.advanceTaxAmount}
+                              onChange={(e) => updateRow(idx, "advanceTaxAmount", e.target.value)}
+                              placeholder="0"
+                              style={{ ...inputStyle, padding: '0.375rem', textAlign: 'right', fontFamily: 'monospace' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                              <input
+                                type="text"
+                                value={r.jvPayTo}
+                                onChange={(e) => updateRow(idx, "jvPayTo", e.target.value)}
+                                placeholder="JV負担先"
+                                style={{ ...inputStyle, padding: '0.375rem' }}
+                              />
+                              <input
+                                type="text"
+                                value={r.summary}
+                                onChange={(e) => updateRow(idx, "summary", e.target.value)}
+                                placeholder="摘要"
+                                style={{ ...inputStyle, padding: '0.375rem' }}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
