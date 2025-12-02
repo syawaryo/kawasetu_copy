@@ -67,7 +67,7 @@ export default function History() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [pdfTab, setPdfTab] = useState<'order' | 'budget' | 'schedule'>('order');
+  const [pdfTab, setPdfTab] = useState<'order' | 'budget' | 'schedule' | 'invoice' | 'slip'>('order');
   const [budgetPdfUrl, setBudgetPdfUrl] = useState<string | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
@@ -138,7 +138,12 @@ export default function History() {
   const handleOpenDetail = (submission: Submission) => {
     setSelectedSubmission(submission);
     setShowDetailModal(true);
-    setPdfTab('order');
+    // タイプに応じて初期タブを設定
+    if (submission.type === '支払伝票') {
+      setPdfTab('invoice');
+    } else {
+      setPdfTab('order');
+    }
   };
 
   const handleCloseDetail = () => {
@@ -410,6 +415,61 @@ export default function History() {
                       />
                     ) : (
                       <div style={{ color: '#686e78', fontSize: '0.9rem' }}>プレビューを読み込めませんでした</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 支払伝票の場合はPDFプレビューを表示 */}
+              {selectedSubmission.type === '支払伝票' && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1a1c20', marginBottom: '0.75rem' }}>添付書類プレビュー</div>
+
+                  {/* タブ */}
+                  <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4', marginBottom: '1rem' }}>
+                    <button
+                      onClick={() => setPdfTab('invoice')}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        border: 'none',
+                        backgroundColor: pdfTab === 'invoice' ? '#fff' : '#f8f9fa',
+                        color: pdfTab === 'invoice' ? '#0d56c9' : '#686e78',
+                        borderBottom: pdfTab === 'invoice' ? '2px solid #0d56c9' : '2px solid transparent',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      請求書 {selectedSubmission.data?.invoiceFileName && <span style={{ fontWeight: 400 }}>({selectedSubmission.data.invoiceFileName})</span>}
+                    </button>
+                    <button
+                      onClick={() => setPdfTab('slip')}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        border: 'none',
+                        backgroundColor: pdfTab === 'slip' ? '#fff' : '#f8f9fa',
+                        color: pdfTab === 'slip' ? '#0d56c9' : '#686e78',
+                        borderBottom: pdfTab === 'slip' ? '2px solid #0d56c9' : '2px solid transparent',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      支払伝票
+                    </button>
+                  </div>
+
+                  {/* PDFプレビュー */}
+                  <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {pdfTab === 'invoice' && (
+                      <div style={{ color: '#686e78', fontSize: '0.9rem' }}>請求書プレビュー（デモ用のため表示不可）</div>
+                    )}
+                    {pdfTab === 'slip' && (
+                      <iframe
+                        src="/支払伝票のみ.pdf"
+                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
+                        title="支払伝票"
+                      />
                     )}
                   </div>
                 </div>

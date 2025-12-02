@@ -15,6 +15,7 @@ import {
 import { useOcrData } from "@/app/contexts/OcrDataContext";
 import { useAuth, DEMO_USERS } from "@/app/contexts/AuthContext";
 import { useData } from "@/app/contexts/DataContext";
+import { useRouter } from "next/navigation";
 
 // 共通スタイル
 const inputStyle: React.CSSProperties = {
@@ -74,6 +75,7 @@ const buttonStyle: React.CSSProperties = {
 };
 
 export default function PaymentSlipPage() {
+  const router = useRouter();
   const { ocrData, clearOcrData } = useOcrData();
   const { currentUser } = useAuth();
   const { addSubmission } = useData();
@@ -291,7 +293,10 @@ export default function PaymentSlipPage() {
             <button onClick={handleOpenModal} style={{ ...buttonStyle, backgroundColor: '#10b981', color: '#fff' }}>
               申請
             </button>
-            <button style={{ ...buttonStyle, backgroundColor: '#0d56c9', color: '#fff' }}>
+            <button
+              onClick={() => router.push('/transfer-slip')}
+              style={{ ...buttonStyle, backgroundColor: '#0d56c9', color: '#fff' }}
+            >
               振替伝票入力に進む
             </button>
           </div>

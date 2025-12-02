@@ -71,6 +71,14 @@ export default function FromTemplate() {
       type: 'excel',
       date: '2024-11-12',
     },
+    {
+      id: 6,
+      name: '支払伝票入力',
+      description: '請求書をOCR読取して支払伝票を作成',
+      category: '支払',
+      type: 'pdf',
+      date: '2024-12-01',
+    },
   ];
 
   return (
@@ -96,6 +104,8 @@ export default function FromTemplate() {
             onClick={() => {
               if (template.name === '予算書.xlsx') {
                 router.push('/budget-form');
+              } else if (template.name === '支払伝票入力') {
+                router.push('/ocr');
               } else {
                 router.push('/excel-make');
               }
