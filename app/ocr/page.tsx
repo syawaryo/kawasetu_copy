@@ -263,6 +263,7 @@ export default function OcrPage() {
     await page.render({
       canvasContext: context,
       viewport: viewport,
+      canvas: canvas,
     }).promise;
 
     setCanvasSize({ width: viewport.width, height: viewport.height });
