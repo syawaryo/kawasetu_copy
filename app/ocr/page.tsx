@@ -51,6 +51,49 @@ function getFieldColor(index: number): string {
   return fieldColors[index % fieldColors.length];
 }
 
+// フィールド名の日本語マッピング
+const fieldLabelMap: Record<string, string> = {
+  payeeCompanyName: "支払先会社名",
+  payeePostalCode: "支払先郵便番号",
+  payeeAddress: "支払先住所",
+  payeePhoneNumber: "支払先電話番号",
+  payeeEmailAddress: "支払先メールアドレス",
+  bankName: "振込先銀行名",
+  bankBranchName: "振込先銀行支店",
+  bankAccountType: "振込先口座種類",
+  bankAccountNumber: "振込先口座番号",
+  payeeCompanyNameKana: "振込先会社名半角カナ",
+  paymentDueDate: "支払期限",
+  invoiceAmountFontMax: "請求額",
+  subtotalAmount: "小計(税抜)",
+  consumptionTaxAmount: "消費税(10%)",
+  totalAmount: "合計(税込)",
+  invoiceRegNo: "適格請求書発行事業者登録番号",
+};
+
+// テーブル列名の日本語マッピング
+const tableColumnLabelMap: Record<string, string> = {
+  itemNo: "No",
+  itemDescription: "品目",
+  itemQuantity: "数量",
+  itemUnitPrice: "単価",
+  itemAmount: "金額",
+};
+
+// フィールドキーを日本語ラベルに変換
+function getFieldLabel(key: string): string {
+  // 配列フィールドの場合: invoiceItems[1].itemNo -> "1行目No"
+  const arrayMatch = key.match(/^(\w+)\[(\d+)\]\.(\w+)$/);
+  if (arrayMatch) {
+    const [, , rowNum, colKey] = arrayMatch;
+    const colLabel = tableColumnLabelMap[colKey] || colKey;
+    return `${rowNum}行目${colLabel}`;
+  }
+
+  // 通常フィールド
+  return fieldLabelMap[key] || key;
+}
+
 // バウンディングボックスオーバーレイ
 function BoundingBoxOverlay({
   data,
@@ -112,7 +155,7 @@ function BoundingBoxOverlay({
               fontWeight="bold"
               style={{ pointerEvents: 'none' }}
             >
-              {key}
+              {getFieldLabel(key)}
             </text>
           </g>
         );
@@ -421,7 +464,7 @@ export default function OcrPage() {
                             <td style={{ padding: '0.4rem' }}>
                               <div style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: color }} />
                             </td>
-                            <td style={{ padding: '0.4rem', fontWeight: 500, color: '#374151' }}>{key}</td>
+                            <td style={{ padding: '0.4rem', fontWeight: 500, color: '#374151' }}>{getFieldLabel(key)}</td>
                             <td style={{ padding: '0.4rem', color: '#1f2937' }}>{value?.content || '-'}</td>
                           </tr>
                         );
