@@ -53,16 +53,53 @@ export async function POST(request: NextRequest) {
       y: number[];
     }> = {};
 
-    for (const [key, value] of Object.entries(fields)) {
-      if (value) {
+    // フィールドからデータを抽出する関数
+    type FieldValue = {
+      kind?: string;
+      content?: string;
+      boundingRegions?: Array<{ polygon?: Array<{ x: number; y: number }> }>;
+      values?: FieldValue[];       // 配列の場合
+      properties?: Record<string, FieldValue>;  // オブジェクトの場合
+    };
+
+    const extractField = (fieldKey: string, value: FieldValue) => {
+      if (!value) return;
+
+      // 配列の場合: 各行を展開
+      if (value.kind === "array" && value.values) {
+        value.values.forEach((item, rowIndex) => {
+          if (item.kind === "object" && item.properties) {
+            // 各列を展開
+            for (const [colKey, colValue] of Object.entries(item.properties)) {
+              if (colValue) {
+                const polygon = colValue.boundingRegions?.[0]?.polygon;
+                if (polygon && polygon.length >= 4) {
+                  const flatKey = `${fieldKey}[${rowIndex + 1}].${colKey}`;
+                  extractedData[flatKey] = {
+                    content: colValue.content || "",
+                    x: polygon.map((p) => p.x),
+                    y: polygon.map((p) => p.y),
+                  };
+                }
+              }
+            }
+          }
+        });
+      } else {
+        // 通常のフィールド
         const polygon = value.boundingRegions?.[0]?.polygon;
-        if (!polygon) continue;
-        extractedData[key] = {
-          content: value.content || "",
-          x: polygon.map((p) => p.x),
-          y: polygon.map((p) => p.y),
-        };
+        if (polygon && polygon.length >= 4) {
+          extractedData[fieldKey] = {
+            content: value.content || "",
+            x: polygon.map((p) => p.x),
+            y: polygon.map((p) => p.y),
+          };
+        }
       }
+    };
+
+    for (const [key, value] of Object.entries(fields)) {
+      extractField(key, value as FieldValue);
     }
 
     return NextResponse.json({
