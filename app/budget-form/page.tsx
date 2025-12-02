@@ -220,6 +220,10 @@ export default function BudgetFormPage() {
         formDataJson: JSON.stringify(formData),
       },
       assignedTo: selectedApprover,
+      approvalFlow: [
+        { label: '自分', status: 'completed' },
+        { label: '工事部長', status: 'current' },
+      ],
     });
 
     setIsSubmitting(false);

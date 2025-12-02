@@ -6,6 +6,12 @@ import { useAuth, DEMO_USERS } from './AuthContext';
 // 申請ステータス
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
 
+// 承認フローのステップ
+export interface ApprovalStep {
+  label: string;
+  status: 'completed' | 'current' | 'pending' | 'rejected';
+}
+
 // 申請データ
 export interface Submission {
   id: string;
@@ -16,7 +22,9 @@ export interface Submission {
   date: string;
   status: SubmissionStatus;
   data: Record<string, string>;
-  assignedTo: string; // 承認者のID
+  assignedTo: string; // 現在の承認者のID
+  approvalFlow: ApprovalStep[]; // 承認フロー
+  currentStep: number; // 現在のステップ（0始まり）
 }
 
 // 保存ファイル
@@ -33,7 +41,7 @@ export interface StoredFile {
 interface DataContextType {
   // 申請関連
   submissions: Submission[];
-  addSubmission: (submission: Omit<Submission, 'id' | 'date'>) => string;
+  addSubmission: (submission: Omit<Submission, 'id' | 'date' | 'approvalFlow' | 'currentStep'> & { approvalFlow: ApprovalStep[] }) => string;
   getMySubmissions: () => Submission[];
   getReceivedRequests: () => Submission[];
   updateSubmissionStatus: (id: string, status: SubmissionStatus) => void;
@@ -47,7 +55,7 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// デモ用の初期申請データ
+// デモ用の初期申請データ（すべて承認済み）
 const INITIAL_SUBMISSIONS: Submission[] = [
   {
     id: 'sub-1',
@@ -56,9 +64,14 @@ const INITIAL_SUBMISSIONS: Submission[] = [
     type: '工事申請',
     title: '給排水設備更新工事',
     date: '2025-01-18',
-    status: 'pending',
+    status: 'approved',
     data: {},
     assignedTo: 'user-yamada',
+    approvalFlow: [
+      { label: '自分', status: 'completed' },
+      { label: '工事部長', status: 'completed' },
+    ],
+    currentStep: 2,
   },
   {
     id: 'sub-2',
@@ -67,9 +80,14 @@ const INITIAL_SUBMISSIONS: Submission[] = [
     type: '機材申請',
     title: 'エアコン3台購入申請',
     date: '2025-01-15',
-    status: 'pending',
+    status: 'approved',
     data: {},
     assignedTo: 'user-yamada',
+    approvalFlow: [
+      { label: '自分', status: 'completed' },
+      { label: '工事部長', status: 'completed' },
+    ],
+    currentStep: 2,
   },
   {
     id: 'sub-3',
@@ -81,6 +99,11 @@ const INITIAL_SUBMISSIONS: Submission[] = [
     status: 'approved',
     data: {},
     assignedTo: 'user-yamada',
+    approvalFlow: [
+      { label: '自分', status: 'completed' },
+      { label: '工事部長', status: 'completed' },
+    ],
+    currentStep: 2,
   },
 ];
 
@@ -126,8 +149,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [files, setFiles] = useState<StoredFile[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // localStorageから復元
+  // localStorageから復元（バージョン管理付き）
   useEffect(() => {
+    const DATA_VERSION = 'v2'; // バージョンを上げると古いデータがリセットされる
+    const savedVersion = localStorage.getItem('kawasaki-demo-version');
+
+    // バージョンが違う場合は初期データにリセット
+    if (savedVersion !== DATA_VERSION) {
+      localStorage.removeItem('kawasaki-demo-submissions');
+      localStorage.removeItem('kawasaki-demo-files');
+      localStorage.setItem('kawasaki-demo-version', DATA_VERSION);
+      setSubmissions(INITIAL_SUBMISSIONS);
+      setFiles(INITIAL_FILES);
+      setIsLoaded(true);
+      return;
+    }
+
     const savedSubmissions = localStorage.getItem('kawasaki-demo-submissions');
     const savedFiles = localStorage.getItem('kawasaki-demo-files');
 
@@ -160,12 +197,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [files, isLoaded]);
 
   // 申請を追加
-  const addSubmission = (submission: Omit<Submission, 'id' | 'date'>): string => {
+  const addSubmission = (submission: Omit<Submission, 'id' | 'date' | 'approvalFlow' | 'currentStep'> & { approvalFlow: ApprovalStep[] }): string => {
     const id = `sub-${Date.now()}`;
     const newSubmission: Submission = {
       ...submission,
       id,
       date: new Date().toISOString().split('T')[0],
+      currentStep: 1, // 最初のステップ（自分）は完了済みなので1から
     };
     setSubmissions(prev => [newSubmission, ...prev]);
     return id;

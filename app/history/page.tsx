@@ -6,55 +6,47 @@ import fontkit from '@pdf-lib/fontkit';
 import { useAuth } from '../contexts/AuthContext';
 import { useData, Submission, SubmissionStatus } from '../contexts/DataContext';
 
-// ステータスの表示用
+// ステータスの表示用（青と黒ベース）
 const getStatusDisplay = (status: SubmissionStatus) => {
   switch (status) {
     case 'pending':
-      return { label: '申請中', color: '#f59e0b', bgColor: '#fef3c7' };
+      return { label: '申請中', color: '#0d56c9', bgColor: '#e8f0fe' };
     case 'approved':
-      return { label: '承認済み', color: '#10b981', bgColor: '#d1fae5' };
+      return { label: '承認済み', color: '#1a1c20', bgColor: '#f0f2f7' };
     case 'rejected':
-      return { label: '差戻し', color: '#ef4444', bgColor: '#fee2e2' };
+      return { label: '差戻し', color: '#686e78', bgColor: '#f0f2f7' };
   }
 };
 
-// 承認フローステッパー
+// 承認フローステッパー（シンプル版）
 const ApprovalStepper = ({ submission }: { submission: Submission }) => {
-  const steps = [
-    { label: '申請者', status: 'completed' as const },
-    {
-      label: '承認者',
-      status: submission.status === 'approved'
-        ? 'completed' as const
-        : submission.status === 'rejected'
-        ? 'rejected' as const
-        : 'current' as const
-    },
-  ];
+  const steps = submission.approvalFlow && submission.approvalFlow.length > 0
+    ? submission.approvalFlow
+    : [
+        { label: '申請者', status: 'completed' as const },
+        {
+          label: '承認者',
+          status: submission.status === 'approved'
+            ? 'completed' as const
+            : submission.status === 'rejected'
+            ? 'rejected' as const
+            : 'current' as const
+        },
+      ];
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', backgroundColor: '#f8f9fa', borderRadius: '0.5rem', marginTop: '0.5rem' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', marginTop: '0.75rem', fontSize: '0.85rem', backgroundColor: '#f8f9fa', borderRadius: '0.375rem' }}>
       {steps.map((step, index) => {
         const isCompleted = step.status === 'completed';
         const isCurrent = step.status === 'current';
-        const isRejected = step.status === 'rejected';
-
-        const circleColor = isCompleted ? '#10b981' : isRejected ? '#ef4444' : isCurrent ? '#0d56c9' : '#dde5f4';
-        const textColor = isCompleted || isCurrent || isRejected ? '#1a1c20' : '#686e78';
 
         return (
-          <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-              <div style={{ width: 24, height: 24, borderRadius: '50%', backgroundColor: circleColor, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 700 }}>
-                {isCompleted ? '✓' : isRejected ? '✕' : ''}
-              </div>
-              <span style={{ fontSize: '0.8rem', color: textColor, fontWeight: isCompleted || isCurrent ? 600 : 400 }}>{step.label}</span>
-            </div>
-
-            {index < steps.length - 1 && (
-              <div style={{ width: 40, height: 2, backgroundColor: isCompleted ? '#10b981' : '#dde5f4' }} />
-            )}
-          </div>
+          <span key={index} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ color: isCompleted ? '#0d56c9' : isCurrent ? '#1a1c20' : '#9ca3af', fontWeight: isCurrent ? 600 : 400 }}>
+              {isCompleted && '✓ '}{step.label}
+            </span>
+            {index < steps.length - 1 && <span style={{ color: '#ccc' }}>→</span>}
+          </span>
         );
       })}
     </div>
@@ -212,7 +204,7 @@ export default function History() {
             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#1a1c20', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               承認依頼
               {pendingRequests.length > 0 && (
-                <span style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', backgroundColor: '#fef3c7', color: '#f59e0b', borderRadius: '0.25rem', fontWeight: 600 }}>
+                <span style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', backgroundColor: '#e8f0fe', color: '#0d56c9', borderRadius: '0.25rem', fontWeight: 600 }}>
                   {pendingRequests.length}件
                 </span>
               )}
@@ -227,7 +219,7 @@ export default function History() {
               {pendingRequests.map((item) => (
                 <div key={item.id} style={{ padding: '1rem', border: '1px solid #dde5f4', borderRadius: '0.5rem', backgroundColor: '#fff' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <span style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', backgroundColor: '#e0e7ff', color: '#4f46e5', borderRadius: '0.25rem', fontWeight: 600 }}>{item.type}</span>
+                    <span style={{ fontSize: '0.75rem', color: '#686e78' }}>{item.type}</span>
                     <span style={{ fontSize: '0.75rem', color: '#686e78' }}>{item.date}</span>
                   </div>
                   <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1a1c20', marginBottom: '0.25rem' }}>{item.title}</div>
@@ -273,32 +265,18 @@ export default function History() {
 
             return (
               <div key={item.id} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #f0f2f7' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '100px 80px 1fr 100px 80px', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ fontSize: '0.85rem', color: '#686e78' }}>{item.date}</div>
-                  <div>
-                    <span style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', backgroundColor: '#e0e7ff', color: '#4f46e5', borderRadius: '0.25rem', fontWeight: 600 }}>{item.type}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ flex: 1, fontSize: '0.9rem', fontWeight: 500, color: '#1a1c20' }}>
+                    {item.date} · {item.type}{isApprover && ` · ${item.applicantName}`}
                   </div>
-                  <div style={{ fontWeight: 500, fontSize: '0.9rem', color: '#1a1c20' }}>
-                    {item.title}
-                    {isApprover && (
-                      <span style={{ fontSize: '0.75rem', color: '#686e78', marginLeft: '0.5rem' }}>({item.applicantName})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', backgroundColor: statusDisplay.bgColor, color: statusDisplay.color, borderRadius: '0.25rem', fontWeight: 600 }}>
-                      {statusDisplay.label}
-                    </span>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <button style={{ padding: '0.375rem 0.75rem', fontSize: '0.8rem', backgroundColor: 'transparent', border: '1px solid #0d56c9', color: '#0d56c9', borderRadius: '0.25rem', cursor: 'pointer' }} onClick={() => handleOpenDetail(item)}>
-                      詳細
-                    </button>
-                  </div>
+                  <span style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', backgroundColor: statusDisplay.bgColor, color: statusDisplay.color, borderRadius: '0.25rem' }}>
+                    {statusDisplay.label}
+                  </span>
+                  <button style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', backgroundColor: 'transparent', border: '1px solid #dde5f4', color: '#686e78', borderRadius: '0.25rem', cursor: 'pointer' }} onClick={() => handleOpenDetail(item)}>
+                    詳細
+                  </button>
                 </div>
-
-                {showFlow && (
-                  <ApprovalStepper submission={item} />
-                )}
+                {showFlow && <ApprovalStepper submission={item} />}
               </div>
             );
           })
@@ -462,7 +440,15 @@ export default function History() {
                   {/* PDFプレビュー */}
                   <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {pdfTab === 'invoice' && (
-                      <div style={{ color: '#686e78', fontSize: '0.9rem' }}>請求書プレビュー（デモ用のため表示不可）</div>
+                      selectedSubmission.data?.invoiceBase64 ? (
+                        <iframe
+                          src={selectedSubmission.data.invoiceBase64}
+                          style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
+                          title="請求書"
+                        />
+                      ) : (
+                        <div style={{ color: '#686e78', fontSize: '0.9rem' }}>請求書がありません</div>
+                      )
                     )}
                     {pdfTab === 'slip' && (
                       <iframe

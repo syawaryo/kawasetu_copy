@@ -227,7 +227,22 @@ export default function PaymentSlipPage() {
     if (!selectedApprover || !currentUser) return;
 
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // BlobURLからBase64に変換
+    let invoiceBase64 = '';
+    if (invoiceFileUrl) {
+      try {
+        const response = await fetch(invoiceFileUrl);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        invoiceBase64 = await new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      } catch (e) {
+        console.error('請求書の変換に失敗:', e);
+      }
+    }
 
     addSubmission({
       applicantId: currentUser.id,
@@ -240,8 +255,15 @@ export default function PaymentSlipPage() {
         rowsJson: JSON.stringify(rows),
         totalsJson: JSON.stringify(totals),
         invoiceFileName: invoiceFileName || '',
+        invoiceBase64: invoiceBase64,
       },
       assignedTo: selectedApprover,
+      approvalFlow: [
+        { label: '支店', status: 'completed' },
+        { label: '支社', status: 'current' },
+        { label: '経理部', status: 'pending' },
+        { label: '本社', status: 'pending' },
+      ],
     });
 
     setIsSubmitting(false);

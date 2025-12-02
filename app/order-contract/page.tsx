@@ -189,6 +189,11 @@ export default function OrderContractPage() {
         subject: header.subject,
       },
       assignedTo: selectedApprover,
+      approvalFlow: [
+        { label: '自分', status: 'completed' },
+        { label: '工事部長', status: 'current' },
+        { label: '本社', status: 'pending' },
+      ],
     });
 
     setIsSubmitting(false);
