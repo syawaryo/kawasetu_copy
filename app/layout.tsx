@@ -13,8 +13,8 @@ const notoSansJP = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: "川崎設備デモ",
-  description: "川崎設備管理システムデモアプリケーション",
+  title: "川崎設備工業デモ",
+  description: "川崎設備工業管理システムデモアプリケーション",
 };
 
 export default function RootLayout({
