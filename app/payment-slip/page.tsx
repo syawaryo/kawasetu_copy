@@ -88,6 +88,9 @@ export default function PaymentSlipPage() {
   const [invoiceFileUrl, setInvoiceFileUrl] = useState<string | null>(null);
   const [invoiceFileName, setInvoiceFileName] = useState<string | null>(null);
 
+  // 事業者登録番号（OCRから取得、全行に適用するためstate保持）
+  const [globalBusinessRegNo, setGlobalBusinessRegNo] = useState<string>('');
+
   // 申請モーダル用
   const [showModal, setShowModal] = useState(false);
   const [selectedApprover, setSelectedApprover] = useState("");
@@ -105,6 +108,12 @@ export default function PaymentSlipPage() {
         setH(prev => ({ ...prev, payee: ocrData.payeeCompanyName || '' }));
       }
 
+      // 事業者登録番号をグローバルに保存
+      const regNo = ocrData.invoiceRegNo || '';
+      if (regNo) {
+        setGlobalBusinessRegNo(regNo);
+      }
+
       // 明細行に反映
       const items = ocrData.invoiceItems || [];
       if (items.length > 0) {
@@ -116,7 +125,7 @@ export default function PaymentSlipPage() {
           }
 
           // 免税判定: invoiceRegNoがあれば免チェックON
-          const isExempt = !!ocrData.invoiceRegNo;
+          const isExempt = !!regNo;
 
           items.forEach((item, idx) => {
             // 金額を数値化して10%税込み・消費税を計算
@@ -139,8 +148,8 @@ export default function PaymentSlipPage() {
               taxType: '内税',
               // 課税区分: 標準(10%)
               taxKbn: '標準(10%)',
-              // 適格請求書発行事業者登録番号（1行目のみ）
-              businessRegNo: idx === 0 && ocrData.invoiceRegNo ? ocrData.invoiceRegNo : newRows[idx].businessRegNo,
+              // 適格請求書発行事業者登録番号（全行に適用）
+              businessRegNo: regNo,
             };
           });
 
@@ -148,7 +157,7 @@ export default function PaymentSlipPage() {
         });
       } else {
         // 明細がない場合は従来通り小計・消費税を1行目に
-        const isExempt = !!ocrData.invoiceRegNo;
+        const isExempt = !!regNo;
         setRows(prev => {
           const newRows = [...prev];
           if (newRows.length > 0) {
@@ -163,14 +172,15 @@ export default function PaymentSlipPage() {
                 taxAmount: String(taxAmount),
               };
             }
-            newRows[0] = {
-              ...newRows[0],
-              exempt: isExempt,
-              taxType: '内税',
-              taxKbn: '標準(10%)',
-            };
-            if (ocrData.invoiceRegNo) {
-              newRows[0] = { ...newRows[0], businessRegNo: ocrData.invoiceRegNo };
+            // 全行に事業者登録番号と免税設定を適用
+            for (let i = 0; i < newRows.length; i++) {
+              newRows[i] = {
+                ...newRows[i],
+                exempt: isExempt,
+                taxType: '内税',
+                taxKbn: '標準(10%)',
+                businessRegNo: regNo,
+              };
             }
           }
           return newRows;
@@ -271,7 +281,17 @@ export default function PaymentSlipPage() {
   };
 
   const addRow = () => {
-    setRows((prev) => [...prev, createEmptyRow(prev.length)]);
+    setRows((prev) => {
+      const newRow = createEmptyRow(prev.length);
+      // グローバルに設定された事業者登録番号を新規行にも適用
+      if (globalBusinessRegNo) {
+        newRow.businessRegNo = globalBusinessRegNo;
+        newRow.exempt = true;
+        newRow.taxType = '内税';
+        newRow.taxKbn = '標準(10%)';
+      }
+      return [...prev, newRow];
+    });
   };
 
   const updateRow = (idx: number, field: keyof PayRow, value: string | boolean) => {
