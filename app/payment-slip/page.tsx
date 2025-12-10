@@ -16,6 +16,7 @@ import { useOcrData } from "@/app/contexts/OcrDataContext";
 import { useAuth, DEMO_USERS } from "@/app/contexts/AuthContext";
 import { useData } from "@/app/contexts/DataContext";
 import { useRouter } from "next/navigation";
+import { AccountSuggestInput } from "@/app/components/AccountSuggestInput";
 
 // 共通スタイル
 const inputStyle: React.CSSProperties = {
@@ -605,10 +606,10 @@ export default function PaymentSlipPage() {
                             {r.no}
                           </td>
                           <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb', borderLeft: '1px solid #e5e7eb' }}>
-                            <input
-                              type="text"
+                            <AccountSuggestInput
                               value={r.accountTitle}
-                              onChange={(e) => updateRow(idx, "accountTitle", e.target.value)}
+                              summary={r.summary}
+                              onChange={(val) => updateRow(idx, "accountTitle", val)}
                               placeholder="科目"
                               style={{ ...inputStyle, padding: '0.375rem' }}
                             />
