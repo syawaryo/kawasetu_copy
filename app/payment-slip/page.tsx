@@ -17,6 +17,7 @@ import { useAuth, DEMO_USERS } from "@/app/contexts/AuthContext";
 import { useData } from "@/app/contexts/DataContext";
 import { useRouter } from "next/navigation";
 import { AccountSuggestInput } from "@/app/components/AccountSuggestInput";
+import { PayeeMasterModal, PayeeRow } from "@/app/components/PayeeMasterModal";
 
 // 共通スタイル
 const inputStyle: React.CSSProperties = {
@@ -98,6 +99,10 @@ export default function PaymentSlipPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [activeTab, setActiveTab] = useState<'invoice' | 'slip'>('invoice');
+
+  // 支払先マスタモーダル
+  const [showPayeeMasterModal, setShowPayeeMasterModal] = useState(false);
+  const [selectedPayee, setSelectedPayee] = useState<PayeeRow | null>(null);
 
   const approvers = DEMO_USERS.filter(u => u.role === 'manager');
 
@@ -281,6 +286,28 @@ export default function PaymentSlipPage() {
     setIsSubmitted(true);
   };
 
+  // 支払先が選択されたときの処理
+  const handlePayeeSelect = (payee: PayeeRow) => {
+    setSelectedPayee(payee);
+    // ヘッダーの支払先を更新
+    setH((prev) => ({
+      ...prev,
+      payee: payee.vendorName,
+    }));
+    // 事業者登録番号をグローバルに設定
+    if (payee.businessRegNo) {
+      setGlobalBusinessRegNo(payee.businessRegNo);
+      // 既存の行にも事業者登録番号を適用
+      setRows((prev) =>
+        prev.map((row) => ({
+          ...row,
+          businessRegNo: payee.businessRegNo,
+          exempt: true,
+        }))
+      );
+    }
+  };
+
   const addRow = () => {
     setRows((prev) => {
       const newRow = createEmptyRow(prev.length);
@@ -431,13 +458,39 @@ export default function PaymentSlipPage() {
                   <label style={labelStyle}>
                     支払先
                   </label>
-                  <input
-                    type="text"
-                    value={h.payee}
-                    onChange={(e) => setH((x) => ({ ...x, payee: e.target.value }))}
-                    placeholder="例: ○○商事株式会社"
-                    style={inputStyle}
-                  />
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input
+                      type="text"
+                      value={h.payee}
+                      onChange={(e) => setH((x) => ({ ...x, payee: e.target.value }))}
+                      placeholder="例: ○○商事株式会社"
+                      style={{ ...inputStyle, flex: 1 }}
+                      readOnly
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPayeeMasterModal(true)}
+                      style={{
+                        ...buttonStyle,
+                        backgroundColor: '#0d56c9',
+                        color: '#fff',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.375rem',
+                      }}
+                    >
+                      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      選択
+                    </button>
+                  </div>
+                  {selectedPayee && (
+                    <div style={{ marginTop: '0.375rem', fontSize: '0.75rem', color: '#686e78' }}>
+                      {selectedPayee.vendorCode} / {selectedPayee.vendorKana}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label style={labelStyle}>
@@ -920,6 +973,13 @@ export default function PaymentSlipPage() {
           </div>
         </div>
       )}
+
+      {/* 支払先マスタモーダル */}
+      <PayeeMasterModal
+        isOpen={showPayeeMasterModal}
+        onClose={() => setShowPayeeMasterModal(false)}
+        onSelect={handlePayeeSelect}
+      />
     </div>
   );
 }

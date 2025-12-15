@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAccountSuggestion, AccountSuggestion } from "@/app/hooks/useAccountSuggestion";
+import { AccountMasterModal, AccountRow } from "./AccountMasterModal";
 
 interface Props {
   value: string;
@@ -20,6 +21,7 @@ export function AccountSuggestInput({
 }: Props) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [showMasterModal, setShowMasterModal] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { suggestions, isLoading } = useAccountSuggestion(summary);
 
@@ -44,6 +46,11 @@ export function AccountSuggestInput({
   const handleSelect = (suggestion: AccountSuggestion) => {
     onChange(suggestion.accountTitle);
     setShowDropdown(false);
+  };
+
+  const handleMasterSelect = (account: AccountRow) => {
+    onChange(account.accountName);
+    setShowMasterModal(false);
   };
 
   return (
@@ -141,7 +148,7 @@ export function AccountSuggestInput({
                 padding: "8px 10px",
                 textAlign: "left",
                 border: "none",
-                borderBottom: idx < suggestions.length - 1 ? "1px solid #f0f2f7" : "none",
+                borderBottom: "1px solid #f0f2f7",
                 backgroundColor: "#fff",
                 cursor: "pointer",
                 transition: "background-color 0.15s",
@@ -172,6 +179,37 @@ export function AccountSuggestInput({
               )}
             </button>
           ))}
+          {/* マスタから検索ボタン */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowDropdown(false);
+              setShowMasterModal(true);
+            }}
+            style={{
+              display: "flex",
+              width: "100%",
+              padding: "8px 10px",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              border: "none",
+              borderTop: "1px solid #dde5f4",
+              backgroundColor: "#f8f9fa",
+              cursor: "pointer",
+              transition: "background-color 0.15s",
+              fontSize: "0.75rem",
+              color: "#0d56c9",
+              fontWeight: 500,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e8f0fe")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f8f9fa")}
+          >
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            マスタから検索
+          </button>
         </div>
       )}
 
@@ -180,6 +218,14 @@ export function AccountSuggestInput({
           to { transform: translateY(-50%) rotate(360deg); }
         }
       `}</style>
+
+      {/* 科目マスタモーダル */}
+      <AccountMasterModal
+        isOpen={showMasterModal}
+        onClose={() => setShowMasterModal(false)}
+        onSelect={handleMasterSelect}
+        initialSearchText={value}
+      />
     </div>
   );
 }
