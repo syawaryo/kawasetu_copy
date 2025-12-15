@@ -264,7 +264,7 @@ export default function PaymentSlipPage() {
       applicantId: currentUser.id,
       applicantName: currentUser.name,
       type: '支払伝票',
-      title: `${h.slipNo} - ${h.payee || '支払先未設定'}`,
+      title: h.payee || '支払先未設定',
       status: 'pending',
       data: {
         headerJson: JSON.stringify(h),

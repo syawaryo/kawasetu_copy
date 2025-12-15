@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, DEMO_USERS } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
@@ -13,6 +13,13 @@ type BudgetRow = {
   executionBudget: string;
 };
 
+type SubjectMaster = {
+  code: string;
+  name: string;
+  category: string;
+  budget: number;
+};
+
 export default function BudgetPage() {
   const router = useRouter();
   const { currentUser } = useAuth();
@@ -23,12 +30,37 @@ export default function BudgetPage() {
   const [selectedApprover, setSelectedApprover] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [subjectMaster, setSubjectMaster] = useState<SubjectMaster[]>([]);
+
+  // マスターデータを読み込み
+  useEffect(() => {
+    fetch('/subjectMaster.json')
+      .then(res => res.json())
+      .then(data => setSubjectMaster(data))
+      .catch(err => console.error('マスターデータの読み込みに失敗:', err));
+  }, []);
+
+  // 工種コード変更時にマスターから自動入力
+  const handleWorkTypeCodeChange = (idx: number, code: string) => {
+    const next = [...rows];
+    next[idx].workTypeCode = code;
+
+    // マスターから該当するデータを検索
+    const master = subjectMaster.find(m => m.code === code.toUpperCase());
+    if (master) {
+      next[idx].workTypeName = master.name;
+      next[idx].expenseItem = master.category;
+      next[idx].executionBudget = master.budget.toString();
+    }
+
+    setRows(next);
+  };
 
   const [rows, setRows] = useState<BudgetRow[]>([
-    { no: 1, workTypeCode: "E01", workTypeName: "電気設備工事", expenseItem: "直接工事費", executionBudget: "72000" },
-    { no: 2, workTypeCode: "A01", workTypeName: "空調設備工事", expenseItem: "直接工事費", executionBudget: "30000" },
-    { no: 3, workTypeCode: "S01", workTypeName: "衛生設備工事", expenseItem: "直接工事費", executionBudget: "12000" },
-    { no: 4, workTypeCode: "O01", workTypeName: "その他工事", expenseItem: "直接工事費", executionBudget: "6000" },
+    { no: 1, workTypeCode: "", workTypeName: "", expenseItem: "", executionBudget: "" },
+    { no: 2, workTypeCode: "", workTypeName: "", expenseItem: "", executionBudget: "" },
+    { no: 3, workTypeCode: "", workTypeName: "", expenseItem: "", executionBudget: "" },
+    { no: 4, workTypeCode: "", workTypeName: "", expenseItem: "", executionBudget: "" },
     { no: 5, workTypeCode: "", workTypeName: "", expenseItem: "", executionBudget: "" },
     { no: 6, workTypeCode: "", workTypeName: "", expenseItem: "", executionBudget: "" },
     { no: 7, workTypeCode: "", workTypeName: "", expenseItem: "", executionBudget: "" },
@@ -62,7 +94,7 @@ export default function BudgetPage() {
       applicantId: currentUser.id,
       applicantName: currentUser.name,
       type: '実行予算',
-      title: `工事コード: ${workCode} 実行予算申請`,
+      title: workCode,
       status: 'pending',
       data: {
         workCode,
@@ -83,9 +115,9 @@ export default function BudgetPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f0f2f7' }}>
-      <header style={{ backgroundColor: '#132942', color: '#fff', padding: '0.75rem 0', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f0f2f7', padding: '1.5rem 24px' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+        <header style={{ backgroundColor: '#132942', color: '#fff', padding: '1rem 1.5rem', borderRadius: '0.625rem 0.625rem 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>実行予算登録</h1>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button onClick={handleOpenModal} disabled={filledRows.length === 0} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: filledRows.length === 0 ? '#ccc' : '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: filledRows.length === 0 ? 'not-allowed' : 'pointer' }}>
@@ -95,12 +127,10 @@ export default function BudgetPage() {
               発注契約登録へ
             </button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '1.5rem 24px' }}>
-        <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', border: '1px solid #dde5f4', marginBottom: '1.5rem' }}>
-          <div style={{ padding: '1rem' }}>
+        <main style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '0 0 0.625rem 0.625rem', border: '1px solid #dde5f4', borderTop: 'none' }}>
+          <div style={{ marginBottom: '1.5rem' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8rem', fontWeight: 600, color: '#1a1c20' }}>工事コード</label>
@@ -134,12 +164,11 @@ export default function BudgetPage() {
               </div>
             </div>
           </div>
-        </div>
 
-        <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', border: '1px solid #dde5f4' }}>
-          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #dde5f4', backgroundColor: '#f8f9fa' }}>
-            <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1a1c20' }}>予算明細</h2>
-          </div>
+          <div style={{ border: '1px solid #dde5f4', borderRadius: '0.375rem' }}>
+            <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #dde5f4', backgroundColor: '#f8f9fa', borderRadius: '0.375rem 0.375rem 0 0' }}>
+              <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1a1c20' }}>予算明細</h2>
+            </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
               <thead>
@@ -156,7 +185,7 @@ export default function BudgetPage() {
                   <tr key={row.no}>
                     <td style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid #f0f2f7' }}>{row.no.toString().padStart(5, "0")}</td>
                     <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
-                      <input type="text" value={row.workTypeCode} onChange={(e) => { const next = [...rows]; next[idx].workTypeCode = e.target.value; setRows(next); }} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }} />
+                      <input type="text" value={row.workTypeCode} onChange={(e) => handleWorkTypeCodeChange(idx, e.target.value)} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }} />
                     </td>
                     <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
                       <input type="text" value={row.workTypeName} onChange={(e) => { const next = [...rows]; next[idx].workTypeName = e.target.value; setRows(next); }} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }} />
@@ -172,8 +201,9 @@ export default function BudgetPage() {
               </tbody>
             </table>
           </div>
-        </div>
-      </main>
+          </div>
+        </main>
+      </div>
 
       {/* 申請モーダル */}
       {showModal && (

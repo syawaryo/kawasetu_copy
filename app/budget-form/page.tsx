@@ -66,7 +66,7 @@ interface BudgetFormData {
 
 const initialFormData: BudgetFormData = {
   工番: "2025-001",
-  工事名称: "〇〇ビル新築電気・空調設備工事",
+  工事名称: "〇〇ビル空調設備工事",
   工期着工: "2025-04-01",
   工期竣工: "2026-03-31",
   期間: "12ヶ月",
@@ -214,7 +214,7 @@ export default function BudgetFormPage() {
       applicantId: currentUser.id,
       applicantName: currentUser.name,
       type: '実行予算書',
-      title: `${formData.工番} - ${formData.工事名称}`,
+      title: formData.工事名称,
       status: 'pending',
       data: {
         formDataJson: JSON.stringify(formData),

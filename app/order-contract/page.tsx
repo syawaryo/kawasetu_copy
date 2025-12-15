@@ -180,7 +180,7 @@ export default function OrderContractPage() {
       applicantId: currentUser.id,
       applicantName: currentUser.name,
       type: '発注契約',
-      title: `${header.subject} - ${header.vendor}`,
+      title: header.subject,
       status: 'pending',
       data: {
         orderNo: header.orderNo,

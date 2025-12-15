@@ -44,7 +44,7 @@ export default function MyStorage() {
 
   return (
     <div>
-      <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.5rem 0', color: '#1a1c20' }}>マイストレージ</h2>
+      <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.5rem 0', color: '#1a1c20' }}>保存履歴</h2>
       <p style={{ margin: '0 0 1.5rem 0', color: '#686e78', fontSize: '0.9rem' }}>
         {currentUser?.name}さんの保存ファイルと書類を管理します
       </p>

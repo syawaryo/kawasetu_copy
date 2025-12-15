@@ -18,50 +18,24 @@ const getStatusDisplay = (status: SubmissionStatus) => {
   }
 };
 
-// 承認フローステッパー（シンプル版）
-const ApprovalStepper = ({ submission }: { submission: Submission }) => {
-  const steps = submission.approvalFlow && submission.approvalFlow.length > 0
-    ? submission.approvalFlow
-    : [
-        { label: '申請者', status: 'completed' as const },
-        {
-          label: '承認者',
-          status: submission.status === 'approved'
-            ? 'completed' as const
-            : submission.status === 'rejected'
-            ? 'rejected' as const
-            : 'current' as const
-        },
-      ];
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', marginTop: '0.75rem', fontSize: '0.85rem', backgroundColor: '#f8f9fa', borderRadius: '0.375rem' }}>
-      {steps.map((step, index) => {
-        const isCompleted = step.status === 'completed';
-        const isCurrent = step.status === 'current';
-
-        return (
-          <span key={index} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ color: isCompleted ? '#0d56c9' : isCurrent ? '#1a1c20' : '#9ca3af', fontWeight: isCurrent ? 600 : 400 }}>
-              {isCompleted && '✓ '}{step.label}
-            </span>
-            {index < steps.length - 1 && <span style={{ color: '#ccc' }}>→</span>}
-          </span>
-        );
-      })}
-    </div>
-  );
-};
-
-export default function History() {
+export default function ApprovalHistory() {
   const { currentUser } = useAuth();
-  const { getMySubmissions } = useData();
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const { getReceivedRequests, updateSubmissionStatus } = useData();
+  const [filter, setFilter] = useState<'all' | 'approved' | 'rejected'>('all');
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [pdfTab, setPdfTab] = useState<'order' | 'budget' | 'schedule' | 'invoice' | 'slip'>('order');
   const [budgetPdfUrl, setBudgetPdfUrl] = useState<string | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const allSubmissions = getReceivedRequests();
+  const pendingRequests = allSubmissions.filter(s => s.status === 'pending');
+  const historySubmissions = allSubmissions.filter(s => s.status !== 'pending');
+
+  const filteredSubmissions = historySubmissions.filter(s => {
+    if (filter === 'all') return true;
+    return s.status === filter;
+  });
 
   // 実行予算書のPDFを生成
   const generateBudgetPdf = async (formDataJson: string): Promise<string | null> => {
@@ -94,7 +68,7 @@ export default function History() {
 
       const filledPdfBytes = await pdfDoc.save();
       const ab = new ArrayBuffer(filledPdfBytes.byteLength);
-      new Uint8Array(ab).set(filledPdfBytes);   
+      new Uint8Array(ab).set(filledPdfBytes);
       const blob = new Blob([ab], { type: "application/pdf" });
       return URL.createObjectURL(blob);
     } catch (error) {
@@ -103,7 +77,6 @@ export default function History() {
     }
   };
 
-  // モーダルが開かれたときにPDFを生成
   useEffect(() => {
     let currentUrl: string | null = null;
 
@@ -127,7 +100,6 @@ export default function History() {
   const handleOpenDetail = (submission: Submission) => {
     setSelectedSubmission(submission);
     setShowDetailModal(true);
-    // タイプに応じて初期タブを設定
     if (submission.type === '支払伝票') {
       setPdfTab('invoice');
     } else {
@@ -155,23 +127,65 @@ export default function History() {
     return [];
   };
 
-  const allSubmissions = getMySubmissions();
+  const handleApprove = (id: string, fromModal = false) => {
+    if (confirm('この申請を承認しますか？')) {
+      updateSubmissionStatus(id, 'approved');
+      if (fromModal) handleCloseDetail();
+    }
+  };
 
-  const filteredSubmissions = allSubmissions.filter(s => {
-    if (filter === 'all') return true;
-    return s.status === filter;
-  });
+  const handleReject = (id: string, fromModal = false) => {
+    if (confirm('この申請を差戻ししますか？')) {
+      updateSubmissionStatus(id, 'rejected');
+      if (fromModal) handleCloseDetail();
+    }
+  };
 
   return (
     <div>
-      <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.5rem 0', color: '#1a1c20' }}>申請履歴</h2>
+      <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.5rem 0', color: '#1a1c20' }}>承認履歴</h2>
       <p style={{ margin: '0 0 1.5rem 0', color: '#686e78', fontSize: '0.9rem' }}>
-        過去の申請履歴を確認できます
+        申請の確認・承認と処理履歴を確認できます
       </p>
+
+      {/* 承認依頼セクション */}
+      <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', boxShadow: '0px 10px 40px rgb(68 73 80 / 10%)', padding: '1.5rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#1a1c20', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            承認依頼
+            {pendingRequests.length > 0 && (
+              <span style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', backgroundColor: '#e8f0fe', color: '#0d56c9', borderRadius: '0.25rem', fontWeight: 600 }}>
+                {pendingRequests.length}件
+              </span>
+            )}
+          </h3>
+        </div>
+        {pendingRequests.length === 0 ? (
+          <div style={{ padding: '1.5rem', textAlign: 'center', color: '#686e78', fontSize: '0.9rem' }}>
+            承認待ちの申請はありません
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+            {pendingRequests.map((item) => (
+              <div key={item.id} style={{ padding: '1rem', border: '1px solid #dde5f4', borderRadius: '0.5rem', backgroundColor: '#fff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#686e78' }}>{item.type}</span>
+                  <span style={{ fontSize: '0.75rem', color: '#686e78' }}>{item.date}</span>
+                </div>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1a1c20', marginBottom: '0.25rem' }}>{item.title}</div>
+                <div style={{ fontSize: '0.8rem', color: '#686e78', marginBottom: '0.75rem' }}>申請者: {item.applicantName}</div>
+                <button style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem', backgroundColor: '#0d56c9', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={() => handleOpenDetail(item)}>
+                  詳細を確認
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* フィルター */}
       <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', boxShadow: '0px 10px 40px rgb(68 73 80 / 10%)', padding: '1.5rem', marginBottom: '1.5rem' }}>
-        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: '#1a1c20' }}>申請履歴</h3>
+        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: '#1a1c20' }}>処理済み履歴</h3>
         <div>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>ステータス</label>
           <select
@@ -180,26 +194,25 @@ export default function History() {
             style={{ width: '100%', maxWidth: '300px', padding: '0.625rem', fontSize: '0.9rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff' }}
           >
             <option value="all">すべて</option>
-            <option value="pending">申請中</option>
             <option value="approved">承認済み</option>
             <option value="rejected">差戻し</option>
           </select>
         </div>
       </div>
 
-      {/* 申請リスト */}
+      {/* 処理済みリスト */}
       <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', boxShadow: '0px 10px 40px rgb(68 73 80 / 10%)', overflow: 'hidden' }}>
         {filteredSubmissions.length === 0 ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: '#686e78', fontSize: '0.9rem' }}>
-            {filter === 'all' ? '申請データがありません' : '該当する申請がありません'}
+            {filter === 'all' ? '処理済みの申請がありません' : '該当する申請がありません'}
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8f9fa' }}>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: '#1a1c20', borderBottom: '1px solid #dde5f4' }}>申請日</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: '#1a1c20', borderBottom: '1px solid #dde5f4' }}>工事名</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: '#1a1c20', borderBottom: '1px solid #dde5f4' }}>種類</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: '#1a1c20', borderBottom: '1px solid #dde5f4' }}>申請者</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: '#1a1c20', borderBottom: '1px solid #dde5f4' }}>申請経路</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: '#1a1c20', borderBottom: '1px solid #dde5f4' }}>ステータス</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600, color: '#1a1c20', borderBottom: '1px solid #dde5f4', width: '80px' }}></th>
@@ -218,8 +231,8 @@ export default function History() {
                 return (
                   <tr key={item.id} style={{ borderBottom: '1px solid #f0f2f7' }}>
                     <td style={{ padding: '0.75rem 1rem', color: '#1a1c20' }}>{item.date}</td>
-                    <td style={{ padding: '0.75rem 1rem', color: '#1a1c20' }}>{item.title}</td>
                     <td style={{ padding: '0.75rem 1rem', color: '#1a1c20' }}>{item.type}</td>
+                    <td style={{ padding: '0.75rem 1rem', color: '#1a1c20' }}>{item.applicantName}</td>
                     <td style={{ padding: '0.75rem 1rem', color: '#686e78', fontSize: '0.8rem' }}>
                       {steps.map((step, index) => (
                         <span key={index}>
@@ -343,7 +356,7 @@ export default function History() {
                 </>
               )}
 
-              {/* 実行予算書の場合はformDataJsonからPDFを生成して表示 */}
+              {/* 実行予算書の場合はPDFプレビュー */}
               {selectedSubmission.type === '実行予算書' && selectedSubmission.data?.formDataJson && (
                 <div style={{ marginBottom: '1.5rem' }}>
                   <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1a1c20', marginBottom: '0.75rem' }}>予算書プレビュー</div>
@@ -363,12 +376,10 @@ export default function History() {
                 </div>
               )}
 
-              {/* 支払伝票の場合はPDFプレビューを表示 */}
+              {/* 支払伝票の場合はPDFプレビュー */}
               {selectedSubmission.type === '支払伝票' && (
                 <div style={{ marginBottom: '1.5rem' }}>
                   <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1a1c20', marginBottom: '0.75rem' }}>添付書類プレビュー</div>
-
-                  {/* タブ */}
                   <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4', marginBottom: '1rem' }}>
                     <button
                       onClick={() => setPdfTab('invoice')}
@@ -401,8 +412,6 @@ export default function History() {
                       支払伝票
                     </button>
                   </div>
-
-                  {/* PDFプレビュー */}
                   <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {pdfTab === 'invoice' && (
                       selectedSubmission.data?.invoiceBase64 ? (
@@ -426,89 +435,34 @@ export default function History() {
                 </div>
               )}
 
-              {/* 発注契約の場合はPDFプレビューを表示 */}
+              {/* 発注契約の場合はPDFプレビュー */}
               {selectedSubmission.type === '発注契約' && (
                 <div style={{ marginBottom: '1.5rem' }}>
                   <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1a1c20', marginBottom: '0.75rem' }}>添付書類プレビュー</div>
-
-                  {/* タブ */}
                   <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4', marginBottom: '1rem' }}>
-                    <button
-                      onClick={() => setPdfTab('order')}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        border: 'none',
-                        backgroundColor: pdfTab === 'order' ? '#fff' : '#f8f9fa',
-                        color: pdfTab === 'order' ? '#0d56c9' : '#686e78',
-                        borderBottom: pdfTab === 'order' ? '2px solid #0d56c9' : '2px solid transparent',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      注文伺書
-                    </button>
-                    <button
-                      onClick={() => setPdfTab('budget')}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        border: 'none',
-                        backgroundColor: pdfTab === 'budget' ? '#fff' : '#f8f9fa',
-                        color: pdfTab === 'budget' ? '#0d56c9' : '#686e78',
-                        borderBottom: pdfTab === 'budget' ? '2px solid #0d56c9' : '2px solid transparent',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      工事実行予算台帳
-                    </button>
-                    <button
-                      onClick={() => setPdfTab('schedule')}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        border: 'none',
-                        backgroundColor: pdfTab === 'schedule' ? '#fff' : '#f8f9fa',
-                        color: pdfTab === 'schedule' ? '#0d56c9' : '#686e78',
-                        borderBottom: pdfTab === 'schedule' ? '2px solid #0d56c9' : '2px solid transparent',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      発注予定表
-                    </button>
+                    <button onClick={() => setPdfTab('order')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: pdfTab === 'order' ? '#fff' : '#f8f9fa', color: pdfTab === 'order' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'order' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>注文伺書</button>
+                    <button onClick={() => setPdfTab('budget')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: pdfTab === 'budget' ? '#fff' : '#f8f9fa', color: pdfTab === 'budget' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'budget' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>工事実行予算台帳</button>
+                    <button onClick={() => setPdfTab('schedule')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: pdfTab === 'schedule' ? '#fff' : '#f8f9fa', color: pdfTab === 'schedule' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'schedule' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>発注予定表</button>
                   </div>
-
-                  {/* PDFプレビュー */}
                   <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '400px' }}>
-                    {pdfTab === 'order' && (
-                      <iframe
-                        src="/注文伺書（データ消し・サンプルデータ）.pdf"
-                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
-                        title="注文伺書"
-                      />
-                    )}
-                    {pdfTab === 'budget' && (
-                      <iframe
-                        src="/工事実行予算台帳（サンプルデータ）.pdf"
-                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
-                        title="工事実行予算台帳"
-                      />
-                    )}
-                    {pdfTab === 'schedule' && (
-                      <iframe
-                        src="/発注予定（サンプルデータ）.pdf"
-                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
-                        title="発注予定表"
-                      />
-                    )}
+                    {pdfTab === 'order' && <iframe src="/注文伺書（データ消し・サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="注文伺書" />}
+                    {pdfTab === 'budget' && <iframe src="/工事実行予算台帳（サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="工事実行予算台帳" />}
+                    {pdfTab === 'schedule' && <iframe src="/発注予定（サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="発注予定表" />}
                   </div>
                 </div>
               )}
             </div>
             <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #dde5f4', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-              <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: 'transparent', border: '1px solid #dde5f4', color: '#686e78', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={handleCloseDetail}>閉じる</button>
+              {selectedSubmission.status === 'pending' ? (
+                <>
+                  <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: 'transparent', border: '1px solid #dde5f4', color: '#686e78', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={handleCloseDetail}>閉じる</button>
+                  <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: '#f59e0b', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={() => alert('修正機能は現在開発中です')}>修正</button>
+                  <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={() => handleReject(selectedSubmission.id, true)}>差戻</button>
+                  <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={() => handleApprove(selectedSubmission.id, true)}>承認</button>
+                </>
+              ) : (
+                <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: 'transparent', border: '1px solid #dde5f4', color: '#686e78', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={handleCloseDetail}>閉じる</button>
+              )}
             </div>
           </div>
         </div>

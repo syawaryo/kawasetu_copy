@@ -38,7 +38,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <header style={{ backgroundColor: '#132942', color: '#fff', padding: '1rem 0' }}>
+      <header style={{ backgroundColor: '#132942', color: '#fff', padding: '1rem 0', borderRadius: '0.625rem 0.625rem 0 0' }}>
         <div style={{ maxWidth: '1160px', margin: '0 auto', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>川崎設備工業管理システム</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
