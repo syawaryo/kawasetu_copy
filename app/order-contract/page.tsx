@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useAuth, DEMO_USERS } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
 import {
@@ -12,9 +11,13 @@ import {
   VendorRow,
   VendorFormData,
   OrderHeader,
+  OrderScheduleRow,
+  BudgetLedgerRow,
   createEmptyDetailRow,
   createEmptyAdvanceRow,
   createEmptyVendorRow,
+  createEmptyOrderScheduleRow,
+  createEmptyBudgetLedgerRow,
   defaultVendorForm,
 } from "../contexts/OrderDataContext";
 
@@ -64,9 +67,7 @@ export default function OrderContractPage() {
   const { currentUser } = useAuth();
   const { addSubmission } = useData();
 
-  // UIモード: 'side' = サイドパネル, 'tab' = タブ
-  const [uiMode, setUiMode] = useState<'side' | 'tab'>('side');
-  const [sideOpen, setSideOpen] = useState(true);
+  // 書類タブ
   const [docTab, setDocTab] = useState<DocType | 'order'>('order');
 
   // 書類状態
@@ -82,6 +83,11 @@ export default function OrderContractPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<DocType | null>(null);
 
+  // 発注予定表の表示モード
+  const [scheduleViewMode, setScheduleViewMode] = useState<'input' | 'pdf'>('input');
+  // 工事実行予算台帳の表示モード
+  const [ledgerViewMode, setLedgerViewMode] = useState<'input' | 'pdf'>('input');
+
   // コンテキストから発注データを取得
   const {
     orders,
@@ -90,6 +96,10 @@ export default function OrderContractPage() {
     addOrder,
     removeOrder,
     updateOrder,
+    orderScheduleRows,
+    setOrderScheduleRows,
+    ledgerRows,
+    setLedgerRows,
   } = useOrderData();
 
   // 現在の発注データへのアクセサ
@@ -154,19 +164,20 @@ export default function OrderContractPage() {
     [rows]
   );
 
-  const handleSave = () => {
-    const data = { header, rows, advanceRows, vendorForm, vendorRows };
-    console.log(JSON.stringify(data, null, 2));
-    alert("保存しました（コンソールにJSON出力）");
-  };
-
-  const handleOpenModal = () => {
-    setShowModal(true);
-    setIsSubmitted(false);
-    if (approvers.length > 0) {
-      setSelectedApprover(approvers[0].id);
-    }
-  };
+  // 工事実行予算台帳用：全発注の発注明細を集約
+  const aggregatedLedgerRows = useMemo(() => {
+    return orders.flatMap((order, orderIdx) =>
+      order.rows
+        .filter(row => row.workType || row.execBudget || row.contractAmount)
+        .map(row => ({
+          orderLabel: `外注発注(${orderIdx + 1})`,
+          vendor: order.header.vendor,
+          workType: row.workType,
+          execBudget: row.execBudget,
+          contractAmount: row.contractAmount,
+        }))
+    );
+  }, [orders]);
 
   const handleCloseModal = () => {
     setShowModal(false);
@@ -203,161 +214,8 @@ export default function OrderContractPage() {
     setIsSubmitted(true);
   };
 
-  // 完了数
-  const completedCount = docs.filter(d => d.status === 'completed' || d.status === 'pdf-attached').length;
-
-  // サイドパネルコンポーネント
-  const SidePanel = () => (
-    <div style={{
-      width: sideOpen ? '280px' : '0',
-      minWidth: sideOpen ? '280px' : '0',
-      backgroundColor: '#fff',
-      borderLeft: sideOpen ? '1px solid #dde5f4' : 'none',
-      transition: 'all 0.3s ease',
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-    }}>
-      {sideOpen && (
-        <>
-          <div style={{ padding: '1rem', borderBottom: '1px solid #dde5f4', backgroundColor: '#f8f9fa' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: '#1a1c20' }}>必要書類</h3>
-              <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600 }}>{completedCount}/6</span>
-            </div>
-            {/* プログレスバー */}
-            <div style={{ marginTop: '0.5rem', height: '4px', backgroundColor: '#e5e7eb', borderRadius: '2px' }}>
-              <div style={{
-                height: '100%',
-                width: `${(completedCount / 6) * 100}%`,
-                backgroundColor: '#059669',
-                borderRadius: '2px',
-                transition: 'width 0.3s',
-              }} />
-            </div>
-          </div>
-          <div style={{ flex: 1, overflow: 'auto', padding: '0.75rem' }}>
-            {docs.map((doc) => (
-              <div key={doc.type} style={{
-                padding: '0.75rem',
-                marginBottom: '0.5rem',
-                backgroundColor: '#f8f9fa',
-                borderRadius: '0.5rem',
-                border: '1px solid #e5e7eb',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.375rem' }}>
-                  <div>
-                    <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600, color: '#1a1c20' }}>{doc.label}</p>
-                    <p style={{ margin: '0.125rem 0 0', fontSize: '0.7rem', color: '#6b7280' }}>{docMeta[doc.type].description}</p>
-                  </div>
-                  <span style={{
-                    padding: '0.125rem 0.375rem',
-                    fontSize: '0.6rem',
-                    fontWeight: 500,
-                    backgroundColor: statusLabels[doc.status].bg,
-                    color: statusLabels[doc.status].color,
-                    borderRadius: '0.25rem',
-                  }}>
-                    {statusLabels[doc.status].label}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '0.375rem', marginTop: '0.5rem' }}>
-                  {(doc.type === 'vendor-quote' || doc.type === 'progress-invoice') ? (
-                    <>
-                      <button
-                        onClick={() => {
-                          setUploadTarget(doc.type);
-                          fileInputRef.current?.click();
-                        }}
-                        style={{
-                          flex: 1,
-                          padding: '0.375rem',
-                          fontSize: '0.7rem',
-                          fontWeight: 500,
-                          backgroundColor: '#fff',
-                          border: '1px solid #dde5f4',
-                          color: '#686e78',
-                          borderRadius: '0.25rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {doc.pdfFile ? 'PDF変更' : 'PDF添付'}
-                      </button>
-                      {doc.pdfUrl && (
-                        <button
-                          onClick={() => window.open(doc.pdfUrl, '_blank')}
-                          style={{
-                            flex: 1,
-                            padding: '0.375rem',
-                            fontSize: '0.7rem',
-                            fontWeight: 500,
-                            backgroundColor: '#e8f0fe',
-                            border: '1px solid #0d56c9',
-                            color: '#0d56c9',
-                            borderRadius: '0.25rem',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          プレビュー
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => {
-                          if (doc.type === 'budget-ledger') router.push('/budget-ledger');
-                          else if (doc.type === 'order-inquiry') router.push('/order-inquiry');
-                          else if (doc.type === 'order-schedule') setDocTab('order');
-                          else if (doc.type === 'quote-request') alert('見積依頼書ページは準備中');
-                        }}
-                        style={{
-                          flex: 1,
-                          padding: '0.375rem',
-                          fontSize: '0.7rem',
-                          fontWeight: 500,
-                          backgroundColor: '#fff',
-                          border: '1px solid #dde5f4',
-                          color: '#686e78',
-                          borderRadius: '0.25rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        編集
-                      </button>
-                      <button
-                        onClick={() => {
-                          setDocs(prev => prev.map(d =>
-                            d.type === doc.type ? { ...d, status: 'completed' } : d
-                          ));
-                        }}
-                        style={{
-                          flex: 1,
-                          padding: '0.375rem',
-                          fontSize: '0.7rem',
-                          fontWeight: 500,
-                          backgroundColor: doc.status === 'completed' ? '#d1fae5' : '#fff',
-                          border: `1px solid ${doc.status === 'completed' ? '#059669' : '#dde5f4'}`,
-                          color: doc.status === 'completed' ? '#059669' : '#686e78',
-                          borderRadius: '0.25rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {doc.status === 'completed' ? '✓ 完了' : '完了にする'}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-
-  // 発注フォーム（共通）
-  const OrderForm = () => (
+  // 発注フォーム（JSX直接展開）
+  const orderFormContent = (
     <>
       {/* 注文書情報 */}
       <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', border: '1px solid #dde5f4', marginBottom: '1.5rem' }}>
@@ -439,7 +297,16 @@ export default function OrderContractPage() {
       {/* 発注明細 */}
       <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', border: '1px solid #dde5f4', marginBottom: '1.5rem' }}>
         <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #dde5f4', backgroundColor: '#f8f9fa', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1a1c20' }}>発注明細</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1a1c20' }}>発注明細</h2>
+            <button
+              onClick={() => setRows([...rows, createEmptyDetailRow()])}
+              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', fontWeight: 500, backgroundColor: '#fff', color: '#0d56c9', border: '1px dashed #0d56c9', borderRadius: '0.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+            >
+              <span style={{ fontSize: '0.9rem', lineHeight: 1 }}>+</span>
+              <span>行を追加</span>
+            </button>
+          </div>
           <span style={{ fontSize: '0.75rem', color: '#686e78' }}>%： (契約金額 − 定価) ÷ 定価 × 100</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
@@ -456,11 +323,12 @@ export default function OrderContractPage() {
                 <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', borderBottom: '1px solid #dde5f4', width: '120px' }}>定価</th>
                 <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', borderBottom: '1px solid #dde5f4', width: '60px' }}>%</th>
                 <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', borderBottom: '1px solid #dde5f4', width: '120px' }}>メリット額</th>
+                <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'center', borderBottom: '1px solid #dde5f4', width: '50px' }}></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r, idx) => (
-                <tr key={r.no}>
+                <tr key={idx}>
                   <td style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid #f0f2f7' }}>{r.no}</td>
                   <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}><input type="text" value={r.workType} onChange={(e) => { const next = [...rows]; next[idx].workType = e.target.value; setRows(next); }} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }} /></td>
                   <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
@@ -478,6 +346,19 @@ export default function OrderContractPage() {
                   <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}><input type="text" value={r.listPrice} onChange={(e) => { const next = [...rows]; next[idx].listPrice = e.target.value; setRows(next); }} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', textAlign: 'right', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }} /></td>
                   <td style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid #f0f2f7', textAlign: 'right', fontWeight: 500 }}>{percentByRow[idx]}</td>
                   <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}><input type="text" value={r.meritAmount} onChange={(e) => { const next = [...rows]; next[idx].meritAmount = e.target.value; setRows(next); }} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', textAlign: 'right', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }} /></td>
+                  <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7', textAlign: 'center' }}>
+                    <button
+                      onClick={() => {
+                        if (rows.length > 1) {
+                          setRows(rows.filter((_, i) => i !== idx));
+                        }
+                      }}
+                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '0.25rem', cursor: 'pointer' }}
+                      disabled={rows.length <= 1}
+                    >
+                      削除
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -504,7 +385,7 @@ export default function OrderContractPage() {
             </thead>
             <tbody>
               {advanceRows.map((r, idx) => (
-                <tr key={r.no}>
+                <tr key={idx}>
                   <td style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid #f0f2f7' }}>{r.no}</td>
                   <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}><input type="text" value={r.companyName} onChange={(e) => { const next = [...advanceRows]; next[idx].companyName = e.target.value; setAdvanceRows(next); }} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }} /></td>
                   <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}><input type="text" value={r.ratio} onChange={(e) => { const next = [...advanceRows]; next[idx].ratio = e.target.value; setAdvanceRows(next); }} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', textAlign: 'right', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }} /></td>
@@ -606,7 +487,7 @@ export default function OrderContractPage() {
             </thead>
             <tbody>
               {vendorRows.map((r, idx) => (
-                <tr key={r.no}>
+                <tr key={idx}>
                   <td style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid #f0f2f7' }}>{r.no}</td>
                   <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7', textAlign: 'center' }}>
                     <input type="checkbox" checked={r.adopted} onChange={(e) => { const next = [...vendorRows]; next[idx].adopted = e.target.checked; setVendorRows(next); }} />
@@ -630,106 +511,60 @@ export default function OrderContractPage() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f0f2f7' }}>
       <header style={{ backgroundColor: '#132942', color: '#fff', padding: '0.75rem 0', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>（外注）発注契約登録</h1>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            {/* UIモード切替 */}
-            <div style={{ display: 'flex', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '0.375rem', padding: '0.125rem', marginRight: '0.5rem' }}>
-              <button
-                onClick={() => setUiMode('side')}
-                style={{
-                  padding: '0.375rem 0.75rem',
-                  fontSize: '0.75rem',
-                  fontWeight: 500,
-                  backgroundColor: uiMode === 'side' ? '#fff' : 'transparent',
-                  color: uiMode === 'side' ? '#132942' : 'rgba(255,255,255,0.7)',
-                  border: 'none',
-                  borderRadius: '0.25rem',
-                  cursor: 'pointer',
-                }}
-              >
-                サイドパネル
-              </button>
-              <button
-                onClick={() => setUiMode('tab')}
-                style={{
-                  padding: '0.375rem 0.75rem',
-                  fontSize: '0.75rem',
-                  fontWeight: 500,
-                  backgroundColor: uiMode === 'tab' ? '#fff' : 'transparent',
-                  color: uiMode === 'tab' ? '#132942' : 'rgba(255,255,255,0.7)',
-                  border: 'none',
-                  borderRadius: '0.25rem',
-                  cursor: 'pointer',
-                }}
-              >
-                タブ
-              </button>
-            </div>
-            <button onClick={handleAddNewOrder} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
-              + 新規登録
-            </button>
-            <button onClick={handleSave} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#6b7280', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
-              保存
-            </button>
-            <button onClick={() => router.push('/order-inquiry')} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#0d56c9', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
-              注文伺書へ
-            </button>
-          </div>
+        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 24px' }}>
+          <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>外注発注</h1>
         </div>
       </header>
 
-      {/* タブモード: 書類タブ */}
-      {uiMode === 'tab' && (
-        <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #dde5f4' }}>
-          <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 24px', display: 'flex', gap: '0' }}>
+      {/* 書類タブ */}
+      <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #dde5f4' }}>
+        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 24px', display: 'flex', gap: '0' }}>
+          <button
+            onClick={() => setDocTab('order')}
+            style={{
+              padding: '0.75rem 1.25rem',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              backgroundColor: '#fff',
+              color: docTab === 'order' ? '#0d56c9' : '#686e78',
+              border: 'none',
+              borderBottom: docTab === 'order' ? '2px solid #0d56c9' : '2px solid transparent',
+              cursor: 'pointer',
+            }}
+          >
+            発注登録
+          </button>
+          {docs.map(doc => (
             <button
-              onClick={() => setDocTab('order')}
+              key={doc.type}
+              onClick={() => setDocTab(doc.type)}
               style={{
                 padding: '0.75rem 1.25rem',
                 fontSize: '0.85rem',
                 fontWeight: 600,
-                backgroundColor: docTab === 'order' ? '#fff' : '#f8f9fa',
-                color: docTab === 'order' ? '#0d56c9' : '#686e78',
+                backgroundColor: '#fff',
+                color: docTab === doc.type ? '#0d56c9' : '#686e78',
                 border: 'none',
-                borderBottom: docTab === 'order' ? '2px solid #0d56c9' : '2px solid transparent',
+                borderBottom: docTab === doc.type ? '2px solid #0d56c9' : '2px solid transparent',
                 cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.375rem',
               }}
             >
-              発注登録
+              {doc.label}
+              {(doc.status === 'completed' || doc.status === 'pdf-attached') && (
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#059669' }} />
+              )}
             </button>
-            {docs.map(doc => (
-              <button
-                key={doc.type}
-                onClick={() => setDocTab(doc.type)}
-                style={{
-                  padding: '0.75rem 1.25rem',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  backgroundColor: docTab === doc.type ? '#fff' : '#f8f9fa',
-                  color: docTab === doc.type ? '#0d56c9' : '#686e78',
-                  border: 'none',
-                  borderBottom: docTab === doc.type ? '2px solid #0d56c9' : '2px solid transparent',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.375rem',
-                }}
-              >
-                {doc.label}
-                {(doc.status === 'completed' || doc.status === 'pdf-attached') && (
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#059669' }} />
-                )}
-              </button>
-            ))}
-          </div>
+          ))}
         </div>
-      )}
+      </div>
 
       {/* 発注タブ（複数発注） */}
-      {orders.length > 1 && (docTab === 'order' || uiMode === 'side') && (
+      {docTab === 'order' && (
         <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #dde5f4', padding: '0.5rem 0' }}>
-          <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 24px', display: 'flex', gap: '0.5rem' }}>
+          <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {orders.map((_, idx) => (
               <div
                 key={idx}
@@ -772,36 +607,275 @@ export default function OrderContractPage() {
                 </button>
               </div>
             ))}
+            <button
+              onClick={handleAddNewOrder}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                padding: '0.375rem 0.75rem',
+                fontSize: '0.8rem',
+                fontWeight: 500,
+                backgroundColor: '#fff',
+                color: '#0d56c9',
+                border: '1px dashed #0d56c9',
+                borderRadius: '0.25rem',
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: '1rem', lineHeight: 1 }}>+</span>
+              <span>新規登録</span>
+            </button>
           </div>
         </div>
       )}
 
       {/* メインコンテンツ */}
-      <div style={{ display: 'flex', maxWidth: '1600px', margin: '0 auto' }}>
-        <main style={{ flex: 1, padding: '1.5rem 24px' }}>
-          {/* タブモードで選択した書類を表示 */}
-          {uiMode === 'tab' && docTab !== 'order' ? (
+      <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
+        <main style={{ padding: '1.5rem 24px' }}>
+          {/* 選択した書類を表示 */}
+          {docTab !== 'order' ? (
             <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', border: '1px solid #dde5f4', padding: '2rem', textAlign: 'center' }}>
               {docTab === 'budget-ledger' && (
-                <div>
-                  <p style={{ fontSize: '1rem', fontWeight: 600, color: '#1a1c20', marginBottom: '1rem' }}>工事実行予算台帳</p>
-                  <button onClick={() => router.push('/budget-ledger')} style={{ padding: '0.75rem 2rem', fontSize: '0.9rem', fontWeight: 600, backgroundColor: '#0d56c9', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
-                    台帳を開く
-                  </button>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <p style={{ fontSize: '1rem', fontWeight: 600, color: '#1a1c20', margin: 0 }}>工事実行予算台帳</p>
+                      <button
+                        onClick={() => setLedgerViewMode(ledgerViewMode === 'input' ? 'pdf' : 'input')}
+                        style={{
+                          padding: '0.375rem 0.75rem',
+                          fontSize: '0.8rem',
+                          fontWeight: 500,
+                          backgroundColor: '#fff',
+                          color: '#0d56c9',
+                          border: '1px solid #0d56c9',
+                          borderRadius: '0.375rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {ledgerViewMode === 'input' ? 'PDFプレビュー' : '発注明細に戻る'}
+                      </button>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: '#686e78' }}>
+                      ※ 発注登録の発注明細から自動反映されます
+                    </span>
+                  </div>
+
+                  {/* 発注明細からの自動生成テーブル */}
+                  {ledgerViewMode === 'input' && (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', width: '60px' }}>No.</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', width: '120px' }}>発注区分</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>コード・費目</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', width: '140px' }}>予算金額</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>発注業者</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', width: '140px' }}>発注金額</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', width: '140px' }}>残高</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {aggregatedLedgerRows.length > 0 ? (
+                            aggregatedLedgerRows.map((row, idx) => {
+                              const budget = toNum(row.execBudget);
+                              const contract = toNum(row.contractAmount);
+                              const balance = (Number.isFinite(budget) && Number.isFinite(contract))
+                                ? (budget - contract).toLocaleString()
+                                : '';
+                              return (
+                                <tr key={idx}>
+                                  <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4', textAlign: 'center' }}>{idx + 1}</td>
+                                  <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4', fontSize: '0.8rem', color: '#0d56c9' }}>{row.orderLabel}</td>
+                                  <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4' }}>{row.workType}</td>
+                                  <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{row.execBudget}</td>
+                                  <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4' }}>{row.vendor}</td>
+                                  <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{row.contractAmount}</td>
+                                  <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4', textAlign: 'right', color: balance.startsWith('-') ? '#dc2626' : '#059669' }}>{balance}</td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan={7} style={{ padding: '2rem', border: '1px solid #dde5f4', textAlign: 'center', color: '#686e78' }}>
+                                発注登録の発注明細にデータを入力すると、ここに反映されます
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* PDFプレビューモード */}
+                  {ledgerViewMode === 'pdf' && (
+                    <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '600px' }}>
+                      <iframe
+                        src="/工事実行予算台帳（サンプルデータ）.pdf"
+                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
+                        title="工事実行予算台帳"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
               {docTab === 'order-inquiry' && (
-                <div>
+                <div style={{ textAlign: 'left' }}>
                   <p style={{ fontSize: '1rem', fontWeight: 600, color: '#1a1c20', marginBottom: '1rem' }}>注文伺書</p>
-                  <button onClick={() => router.push('/order-inquiry')} style={{ padding: '0.75rem 2rem', fontSize: '0.9rem', fontWeight: 600, backgroundColor: '#0d56c9', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
-                    注文伺書を開く
-                  </button>
+                  <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '600px' }}>
+                    <iframe
+                      src="/注文伺書（データ消し・サンプルデータ）.pdf"
+                      style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
+                      title="注文伺書"
+                    />
+                  </div>
                 </div>
               )}
               {docTab === 'order-schedule' && (
-                <div>
-                  <p style={{ fontSize: '1rem', fontWeight: 600, color: '#1a1c20', marginBottom: '1rem' }}>発注予定表</p>
-                  <p style={{ fontSize: '0.85rem', color: '#686e78' }}>発注登録の情報から自動生成されます</p>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <p style={{ fontSize: '1rem', fontWeight: 600, color: '#1a1c20', margin: 0 }}>発注予定表</p>
+                      {/* 表示切替ボタン */}
+                      <button
+                        onClick={() => setScheduleViewMode(scheduleViewMode === 'input' ? 'pdf' : 'input')}
+                        style={{
+                          padding: '0.375rem 0.75rem',
+                          fontSize: '0.8rem',
+                          fontWeight: 500,
+                          backgroundColor: '#fff',
+                          color: '#0d56c9',
+                          border: '1px solid #0d56c9',
+                          borderRadius: '0.375rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.375rem',
+                        }}
+                      >
+                        {scheduleViewMode === 'input' ? 'PDFプレビュー' : '入力に戻る'}
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setOrderScheduleRows([...orderScheduleRows, createEmptyOrderScheduleRow()])}
+                      style={{
+                        padding: '0.375rem 0.75rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 500,
+                        backgroundColor: '#fff',
+                        color: '#0d56c9',
+                        border: '1px dashed #0d56c9',
+                        borderRadius: '0.25rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        visibility: scheduleViewMode === 'input' ? 'visible' : 'hidden',
+                      }}
+                    >
+                      <span style={{ fontSize: '1rem', lineHeight: 1 }}>+</span>
+                      <span>行を追加</span>
+                    </button>
+                  </div>
+
+                  {/* 入力モード */}
+                  {scheduleViewMode === 'input' && (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', width: '60px' }}>No.</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>工種</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>発注予定業者</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', width: '150px' }}>発注予定金額</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>備考</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'center', border: '1px solid #dde5f4', width: '50px' }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {orderScheduleRows.map((row, idx) => (
+                            <tr key={idx}>
+                              <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4', textAlign: 'center' }}>{idx + 1}</td>
+                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                                <input
+                                  type="text"
+                                  value={row.workType}
+                                  onChange={(e) => {
+                                    const next = [...orderScheduleRows];
+                                    next[idx].workType = e.target.value;
+                                    setOrderScheduleRows(next);
+                                  }}
+                                  style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }}
+                                />
+                              </td>
+                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                                <input
+                                  type="text"
+                                  value={row.plannedVendor}
+                                  onChange={(e) => {
+                                    const next = [...orderScheduleRows];
+                                    next[idx].plannedVendor = e.target.value;
+                                    setOrderScheduleRows(next);
+                                  }}
+                                  style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }}
+                                />
+                              </td>
+                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                                <input
+                                  type="text"
+                                  value={row.plannedAmount}
+                                  onChange={(e) => {
+                                    const next = [...orderScheduleRows];
+                                    next[idx].plannedAmount = e.target.value;
+                                    setOrderScheduleRows(next);
+                                  }}
+                                  style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', textAlign: 'right', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }}
+                                />
+                              </td>
+                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                                <input
+                                  type="text"
+                                  value={row.note}
+                                  onChange={(e) => {
+                                    const next = [...orderScheduleRows];
+                                    next[idx].note = e.target.value;
+                                    setOrderScheduleRows(next);
+                                  }}
+                                  style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }}
+                                />
+                              </td>
+                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4', textAlign: 'center' }}>
+                                <button
+                                  onClick={() => {
+                                    if (orderScheduleRows.length > 1) {
+                                      setOrderScheduleRows(orderScheduleRows.filter((_, i) => i !== idx));
+                                    }
+                                  }}
+                                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '0.25rem', cursor: 'pointer' }}
+                                  disabled={orderScheduleRows.length <= 1}
+                                >
+                                  削除
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* PDFプレビューモード */}
+                  {scheduleViewMode === 'pdf' && (
+                    <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '600px' }}>
+                      <iframe
+                        src="/発注予定（サンプルデータ）.pdf"
+                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
+                        title="発注予定表"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
               {docTab === 'quote-request' && (
@@ -849,40 +923,9 @@ export default function OrderContractPage() {
               )}
             </div>
           ) : (
-            <OrderForm />
+            orderFormContent
           )}
         </main>
-
-        {/* サイドパネルモード */}
-        {uiMode === 'side' && (
-          <>
-            {/* 開閉ボタン */}
-            <button
-              onClick={() => setSideOpen(!sideOpen)}
-              style={{
-                position: 'fixed',
-                right: sideOpen ? '280px' : '0',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                width: '24px',
-                height: '48px',
-                backgroundColor: '#0d56c9',
-                border: 'none',
-                borderRadius: sideOpen ? '0.25rem 0 0 0.25rem' : '0.25rem 0 0 0.25rem',
-                color: '#fff',
-                cursor: 'pointer',
-                zIndex: 50,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'right 0.3s ease',
-              }}
-            >
-              {sideOpen ? '›' : '‹'}
-            </button>
-            <SidePanel />
-          </>
-        )}
       </div>
 
       {/* 隠しファイル入力 */}
@@ -918,10 +961,10 @@ export default function OrderContractPage() {
             ) : (
               <>
                 {/* タブ */}
-                <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4', backgroundColor: '#f8f9fa' }}>
-                  <button onClick={() => setActiveTab('order')} style={{ padding: '0.75rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, border: 'none', backgroundColor: activeTab === 'order' ? '#fff' : 'transparent', color: activeTab === 'order' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'order' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>注文伺書</button>
-                  <button onClick={() => setActiveTab('budget')} style={{ padding: '0.75rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, border: 'none', backgroundColor: activeTab === 'budget' ? '#fff' : 'transparent', color: activeTab === 'budget' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'budget' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>工事実行予算台帳</button>
-                  <button onClick={() => setActiveTab('schedule')} style={{ padding: '0.75rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, border: 'none', backgroundColor: activeTab === 'schedule' ? '#fff' : 'transparent', color: activeTab === 'schedule' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'schedule' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>発注予定表</button>
+                <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4' }}>
+                  <button onClick={() => setActiveTab('order')} style={{ padding: '0.75rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'order' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'order' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>注文伺書</button>
+                  <button onClick={() => setActiveTab('budget')} style={{ padding: '0.75rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'budget' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'budget' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>工事実行予算台帳</button>
+                  <button onClick={() => setActiveTab('schedule')} style={{ padding: '0.75rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'schedule' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'schedule' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>発注予定表</button>
                 </div>
 
                 {/* PDFプレビュー */}

@@ -101,6 +101,32 @@ export type BudgetLedgerRow = {
   balance: string;        // 残高
 };
 
+// 発注予定表の行
+export type OrderScheduleRow = {
+  workType: string;       // 工種
+  plannedVendor: string;  // 発注予定業者
+  plannedAmount: string;  // 発注予定金額
+  note: string;           // 備考
+};
+
+export const createEmptyOrderScheduleRow = (): OrderScheduleRow => ({
+  workType: '',
+  plannedVendor: '',
+  plannedAmount: '',
+  note: '',
+});
+
+export const createEmptyBudgetLedgerRow = (): BudgetLedgerRow => ({
+  codeItem: '',
+  budgetAmount: '',
+  approvalNo: '',
+  approvalDate: '',
+  orderVendor: '',
+  orderAmount: '',
+  plannedOrder: '',
+  balance: '',
+});
+
 // デフォルト値
 export const defaultHeader: OrderHeader = {
   orderNo: "",
@@ -167,6 +193,9 @@ interface OrderDataContextType {
   // 工事実行予算台帳用
   ledgerRows: BudgetLedgerRow[];
   setLedgerRows: (rows: BudgetLedgerRow[]) => void;
+  // 発注予定表用
+  orderScheduleRows: OrderScheduleRow[];
+  setOrderScheduleRows: (rows: OrderScheduleRow[]) => void;
 }
 
 const OrderDataContext = createContext<OrderDataContextType | undefined>(undefined);
@@ -174,7 +203,20 @@ const OrderDataContext = createContext<OrderDataContextType | undefined>(undefin
 export function OrderDataProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<OrderData[]>([createEmptyOrder()]);
   const [currentOrderIndex, setCurrentOrderIndex] = useState(0);
-  const [ledgerRows, setLedgerRows] = useState<BudgetLedgerRow[]>([]);
+  const [ledgerRows, setLedgerRows] = useState<BudgetLedgerRow[]>([
+    createEmptyBudgetLedgerRow(),
+    createEmptyBudgetLedgerRow(),
+    createEmptyBudgetLedgerRow(),
+    createEmptyBudgetLedgerRow(),
+    createEmptyBudgetLedgerRow(),
+  ]);
+  const [orderScheduleRows, setOrderScheduleRows] = useState<OrderScheduleRow[]>([
+    createEmptyOrderScheduleRow(),
+    createEmptyOrderScheduleRow(),
+    createEmptyOrderScheduleRow(),
+    createEmptyOrderScheduleRow(),
+    createEmptyOrderScheduleRow(),
+  ]);
 
   const addOrder = () => {
     setOrders(prev => [...prev, createEmptyOrder()]);
@@ -207,6 +249,8 @@ export function OrderDataProvider({ children }: { children: ReactNode }) {
         updateOrder,
         ledgerRows,
         setLedgerRows,
+        orderScheduleRows,
+        setOrderScheduleRows,
       }}
     >
       {children}

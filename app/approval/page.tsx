@@ -388,7 +388,7 @@ export default function ApprovalHistory() {
                         fontSize: '0.8rem',
                         fontWeight: 600,
                         border: 'none',
-                        backgroundColor: pdfTab === 'invoice' ? '#fff' : '#f8f9fa',
+                        backgroundColor: '#fff',
                         color: pdfTab === 'invoice' ? '#0d56c9' : '#686e78',
                         borderBottom: pdfTab === 'invoice' ? '2px solid #0d56c9' : '2px solid transparent',
                         cursor: 'pointer',
@@ -403,7 +403,7 @@ export default function ApprovalHistory() {
                         fontSize: '0.8rem',
                         fontWeight: 600,
                         border: 'none',
-                        backgroundColor: pdfTab === 'slip' ? '#fff' : '#f8f9fa',
+                        backgroundColor: '#fff',
                         color: pdfTab === 'slip' ? '#0d56c9' : '#686e78',
                         borderBottom: pdfTab === 'slip' ? '2px solid #0d56c9' : '2px solid transparent',
                         cursor: 'pointer',
@@ -440,9 +440,9 @@ export default function ApprovalHistory() {
                 <div style={{ marginBottom: '1.5rem' }}>
                   <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1a1c20', marginBottom: '0.75rem' }}>添付書類プレビュー</div>
                   <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4', marginBottom: '1rem' }}>
-                    <button onClick={() => setPdfTab('order')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: pdfTab === 'order' ? '#fff' : '#f8f9fa', color: pdfTab === 'order' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'order' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>注文伺書</button>
-                    <button onClick={() => setPdfTab('budget')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: pdfTab === 'budget' ? '#fff' : '#f8f9fa', color: pdfTab === 'budget' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'budget' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>工事実行予算台帳</button>
-                    <button onClick={() => setPdfTab('schedule')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: pdfTab === 'schedule' ? '#fff' : '#f8f9fa', color: pdfTab === 'schedule' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'schedule' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>発注予定表</button>
+                    <button onClick={() => setPdfTab('order')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: pdfTab === 'order' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'order' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>注文伺書</button>
+                    <button onClick={() => setPdfTab('budget')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: pdfTab === 'budget' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'budget' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>工事実行予算台帳</button>
+                    <button onClick={() => setPdfTab('schedule')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: pdfTab === 'schedule' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'schedule' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>発注予定表</button>
                   </div>
                   <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '400px' }}>
                     {pdfTab === 'order' && <iframe src="/注文伺書（データ消し・サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="注文伺書" />}
