@@ -637,6 +637,7 @@ export default function PaymentSlipPage() {
                     <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f', minWidth: 120 }}>査定金額</th>
                     <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f', minWidth: 100 }}>立替税率</th>
                     <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 150 }}>事業者登録番号</th>
+                    <th rowSpan={2} style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'center', border: '1px solid #1e3a5f', width: 50 }}></th>
                   </tr>
                   <tr style={{ backgroundColor: '#1e3a5f', color: '#fff' }}>
                     <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 140 }}>部門</th>
@@ -657,7 +658,7 @@ export default function PaymentSlipPage() {
                         {/* 1行目 */}
                         <tr style={{ backgroundColor: bgColor }}>
                           <td rowSpan={2} style={{ padding: '0.25rem', border: '1px solid #e5e7eb', textAlign: 'center', fontFamily: 'monospace', color: '#686e78', verticalAlign: 'middle' }}>
-                            {r.no}
+                            {idx + 1}
                           </td>
                           <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb', borderLeft: '1px solid #e5e7eb' }}>
                             <AccountSuggestInput
@@ -740,6 +741,28 @@ export default function PaymentSlipPage() {
                               placeholder="T0000000000000"
                               style={{ ...inputStyle, padding: '0.375rem', fontFamily: 'monospace' }}
                             />
+                          </td>
+                          <td rowSpan={2} style={{ padding: '0.25rem', border: '1px solid #e5e7eb', textAlign: 'center', verticalAlign: 'middle' }}>
+                            <button
+                              onClick={() => {
+                                if (rows.length > 1) {
+                                  setRows(rows.filter((_, i) => i !== idx));
+                                }
+                              }}
+                              style={{
+                                padding: '0.25rem 0.5rem',
+                                fontSize: '0.7rem',
+                                backgroundColor: '#fee2e2',
+                                color: '#dc2626',
+                                border: 'none',
+                                borderRadius: '0.25rem',
+                                cursor: rows.length <= 1 ? 'not-allowed' : 'pointer',
+                                opacity: rows.length <= 1 ? 0.5 : 1,
+                              }}
+                              disabled={rows.length <= 1}
+                            >
+                              削除
+                            </button>
                           </td>
                         </tr>
                         {/* 2行目 */}

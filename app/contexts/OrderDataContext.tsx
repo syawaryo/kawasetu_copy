@@ -5,6 +5,7 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 // 明細行
 export type DetailRow = {
   no: string;
+  workTypeCode: string;
   workType: string;
   taxType: string;
   execBudget: string;
@@ -150,7 +151,7 @@ export const defaultHeader: OrderHeader = {
 };
 
 export const createEmptyDetailRow = (): DetailRow => ({
-  no: "", workType: "", taxType: "", execBudget: "", orderedAmount: "", contractAmount: "", contractTax: "", budgetRemain: "", advanceTo: "", maker: "", listPrice: "", meritAmount: "", meritTax: "", meritInclTax: ""
+  no: "", workTypeCode: "", workType: "", taxType: "", execBudget: "", orderedAmount: "", contractAmount: "", contractTax: "", budgetRemain: "", advanceTo: "", maker: "", listPrice: "", meritAmount: "", meritTax: "", meritInclTax: ""
 });
 
 export const createEmptyAdvanceRow = (): AdvanceRow => ({

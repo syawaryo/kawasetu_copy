@@ -87,6 +87,8 @@ export default function OrderContractPage() {
   const [scheduleViewMode, setScheduleViewMode] = useState<'input' | 'pdf'>('input');
   // 工事実行予算台帳の表示モード
   const [ledgerViewMode, setLedgerViewMode] = useState<'input' | 'pdf'>('input');
+  // 注文伺書の選択インデックス
+  const [inquiryIndex, setInquiryIndex] = useState(0);
 
   // コンテキストから発注データを取得
   const {
@@ -168,13 +170,28 @@ export default function OrderContractPage() {
   const aggregatedLedgerRows = useMemo(() => {
     return orders.flatMap((order, orderIdx) =>
       order.rows
-        .filter(row => row.workType || row.execBudget || row.contractAmount)
+        .filter(row => row.workTypeCode || row.workType || row.execBudget || row.contractAmount)
         .map(row => ({
           orderLabel: `外注発注(${orderIdx + 1})`,
           vendor: order.header.vendor,
+          workTypeCode: row.workTypeCode,
           workType: row.workType,
           execBudget: row.execBudget,
           contractAmount: row.contractAmount,
+        }))
+    );
+  }, [orders]);
+
+  // 発注予定表用：全発注の発注明細を集約
+  const aggregatedScheduleRows = useMemo(() => {
+    return orders.flatMap((order) =>
+      order.rows
+        .filter(row => row.workTypeCode || row.workType || row.contractAmount)
+        .map(row => ({
+          workTypeCode: row.workTypeCode,
+          workType: row.workType,
+          vendor: order.header.vendor,
+          amount: row.contractAmount,
         }))
     );
   }, [orders]);
@@ -297,23 +314,14 @@ export default function OrderContractPage() {
       {/* 発注明細 */}
       <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', border: '1px solid #dde5f4', marginBottom: '1.5rem' }}>
         <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #dde5f4', backgroundColor: '#f8f9fa', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1a1c20' }}>発注明細</h2>
-            <button
-              onClick={() => setRows([...rows, createEmptyDetailRow()])}
-              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', fontWeight: 500, backgroundColor: '#fff', color: '#0d56c9', border: '1px dashed #0d56c9', borderRadius: '0.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-            >
-              <span style={{ fontSize: '0.9rem', lineHeight: 1 }}>+</span>
-              <span>行を追加</span>
-            </button>
-          </div>
+          <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1a1c20' }}>発注明細</h2>
           <span style={{ fontSize: '0.75rem', color: '#686e78' }}>%： (契約金額 − 定価) ÷ 定価 × 100</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
             <thead>
               <tr>
-                <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #dde5f4', width: '64px' }}>No.</th>
+                <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #dde5f4', width: '100px' }}>工種コード</th>
                 <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #dde5f4' }}>工種</th>
                 <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #dde5f4', width: '80px' }}>消費税区分</th>
                 <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', borderBottom: '1px solid #dde5f4', width: '120px' }}>実行予算額</th>
@@ -329,7 +337,7 @@ export default function OrderContractPage() {
             <tbody>
               {rows.map((r, idx) => (
                 <tr key={idx}>
-                  <td style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid #f0f2f7' }}>{r.no}</td>
+                  <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}><input type="text" value={r.workTypeCode} onChange={(e) => { const next = [...rows]; next[idx].workTypeCode = e.target.value; setRows(next); }} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }} /></td>
                   <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}><input type="text" value={r.workType} onChange={(e) => { const next = [...rows]; next[idx].workType = e.target.value; setRows(next); }} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }} /></td>
                   <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
                     <select value={r.taxType} onChange={(e) => { const next = [...rows]; next[idx].taxType = e.target.value; setRows(next); }} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', backgroundColor: '#fff', boxSizing: 'border-box' }}>
@@ -363,6 +371,18 @@ export default function OrderContractPage() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button
+            onClick={() => setRows([...rows, createEmptyDetailRow()])}
+            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#fff', color: '#1a1c20', border: '1px solid #dde5f4', borderRadius: '0.375rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            行を追加
+          </button>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#686e78' }}>{rows.length} 件の明細</p>
         </div>
       </div>
 
@@ -668,9 +688,8 @@ export default function OrderContractPage() {
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                         <thead>
                           <tr>
-                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', width: '60px' }}>No.</th>
-                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', width: '120px' }}>発注区分</th>
-                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>コード・費目</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', width: '100px' }}>工種コード</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>工種</th>
                             <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', width: '140px' }}>予算金額</th>
                             <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>発注業者</th>
                             <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', width: '140px' }}>発注金額</th>
@@ -687,8 +706,7 @@ export default function OrderContractPage() {
                                 : '';
                               return (
                                 <tr key={idx}>
-                                  <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4', textAlign: 'center' }}>{idx + 1}</td>
-                                  <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4', fontSize: '0.8rem', color: '#0d56c9' }}>{row.orderLabel}</td>
+                                  <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4' }}>{row.workTypeCode}</td>
                                   <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4' }}>{row.workType}</td>
                                   <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{row.execBudget}</td>
                                   <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4' }}>{row.vendor}</td>
@@ -699,7 +717,7 @@ export default function OrderContractPage() {
                             })
                           ) : (
                             <tr>
-                              <td colSpan={7} style={{ padding: '2rem', border: '1px solid #dde5f4', textAlign: 'center', color: '#686e78' }}>
+                              <td colSpan={6} style={{ padding: '2rem', border: '1px solid #dde5f4', textAlign: 'center', color: '#686e78' }}>
                                 発注登録の発注明細にデータを入力すると、ここに反映されます
                               </td>
                             </tr>
@@ -723,12 +741,34 @@ export default function OrderContractPage() {
               )}
               {docTab === 'order-inquiry' && (
                 <div style={{ textAlign: 'left' }}>
-                  <p style={{ fontSize: '1rem', fontWeight: 600, color: '#1a1c20', marginBottom: '1rem' }}>注文伺書</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                    <p style={{ fontSize: '1rem', fontWeight: 600, color: '#1a1c20', margin: 0 }}>注文伺書</p>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {orders.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setInquiryIndex(idx)}
+                          style={{
+                            padding: '0.375rem 0.75rem',
+                            fontSize: '0.8rem',
+                            fontWeight: 500,
+                            backgroundColor: idx === inquiryIndex ? '#0d56c9' : '#f0f2f7',
+                            color: idx === inquiryIndex ? '#fff' : '#686e78',
+                            border: 'none',
+                            borderRadius: '0.25rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          注文伺書({idx + 1})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '600px' }}>
                     <iframe
                       src="/注文伺書（データ消し・サンプルデータ）.pdf"
                       style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
-                      title="注文伺書"
+                      title={`注文伺書(${inquiryIndex + 1})`}
                     />
                   </div>
                 </div>
@@ -738,7 +778,6 @@ export default function OrderContractPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                       <p style={{ fontSize: '1rem', fontWeight: 600, color: '#1a1c20', margin: 0 }}>発注予定表</p>
-                      {/* 表示切替ボタン */}
                       <button
                         onClick={() => setScheduleViewMode(scheduleViewMode === 'input' ? 'pdf' : 'input')}
                         style={{
@@ -750,117 +789,45 @@ export default function OrderContractPage() {
                           border: '1px solid #0d56c9',
                           borderRadius: '0.375rem',
                           cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.375rem',
                         }}
                       >
-                        {scheduleViewMode === 'input' ? 'PDFプレビュー' : '入力に戻る'}
+                        {scheduleViewMode === 'input' ? 'PDFプレビュー' : '発注明細に戻る'}
                       </button>
                     </div>
-                    <button
-                      onClick={() => setOrderScheduleRows([...orderScheduleRows, createEmptyOrderScheduleRow()])}
-                      style={{
-                        padding: '0.375rem 0.75rem',
-                        fontSize: '0.8rem',
-                        fontWeight: 500,
-                        backgroundColor: '#fff',
-                        color: '#0d56c9',
-                        border: '1px dashed #0d56c9',
-                        borderRadius: '0.25rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.25rem',
-                        visibility: scheduleViewMode === 'input' ? 'visible' : 'hidden',
-                      }}
-                    >
-                      <span style={{ fontSize: '1rem', lineHeight: 1 }}>+</span>
-                      <span>行を追加</span>
-                    </button>
+                    <span style={{ fontSize: '0.75rem', color: '#686e78' }}>
+                      ※ 発注登録の発注明細から自動反映されます
+                    </span>
                   </div>
 
-                  {/* 入力モード */}
+                  {/* 発注明細からの自動生成テーブル */}
                   {scheduleViewMode === 'input' && (
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                         <thead>
                           <tr>
-                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', width: '60px' }}>No.</th>
+                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', width: '100px' }}>工種コード</th>
                             <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>工種</th>
                             <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>発注予定業者</th>
                             <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', width: '150px' }}>発注予定金額</th>
-                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>備考</th>
-                            <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'center', border: '1px solid #dde5f4', width: '50px' }}></th>
                           </tr>
                         </thead>
                         <tbody>
-                          {orderScheduleRows.map((row, idx) => (
-                            <tr key={idx}>
-                              <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4', textAlign: 'center' }}>{idx + 1}</td>
-                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
-                                <input
-                                  type="text"
-                                  value={row.workType}
-                                  onChange={(e) => {
-                                    const next = [...orderScheduleRows];
-                                    next[idx].workType = e.target.value;
-                                    setOrderScheduleRows(next);
-                                  }}
-                                  style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }}
-                                />
-                              </td>
-                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
-                                <input
-                                  type="text"
-                                  value={row.plannedVendor}
-                                  onChange={(e) => {
-                                    const next = [...orderScheduleRows];
-                                    next[idx].plannedVendor = e.target.value;
-                                    setOrderScheduleRows(next);
-                                  }}
-                                  style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }}
-                                />
-                              </td>
-                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
-                                <input
-                                  type="text"
-                                  value={row.plannedAmount}
-                                  onChange={(e) => {
-                                    const next = [...orderScheduleRows];
-                                    next[idx].plannedAmount = e.target.value;
-                                    setOrderScheduleRows(next);
-                                  }}
-                                  style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', textAlign: 'right', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }}
-                                />
-                              </td>
-                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
-                                <input
-                                  type="text"
-                                  value={row.note}
-                                  onChange={(e) => {
-                                    const next = [...orderScheduleRows];
-                                    next[idx].note = e.target.value;
-                                    setOrderScheduleRows(next);
-                                  }}
-                                  style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }}
-                                />
-                              </td>
-                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4', textAlign: 'center' }}>
-                                <button
-                                  onClick={() => {
-                                    if (orderScheduleRows.length > 1) {
-                                      setOrderScheduleRows(orderScheduleRows.filter((_, i) => i !== idx));
-                                    }
-                                  }}
-                                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '0.25rem', cursor: 'pointer' }}
-                                  disabled={orderScheduleRows.length <= 1}
-                                >
-                                  削除
-                                </button>
+                          {aggregatedScheduleRows.length > 0 ? (
+                            aggregatedScheduleRows.map((row, idx) => (
+                              <tr key={idx}>
+                                <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4' }}>{row.workTypeCode}</td>
+                                <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4' }}>{row.workType}</td>
+                                <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4' }}>{row.vendor}</td>
+                                <td style={{ padding: '0.5rem 0.75rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{row.amount}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={4} style={{ padding: '2rem', border: '1px solid #dde5f4', textAlign: 'center', color: '#686e78' }}>
+                                発注登録の発注明細にデータを入力すると、ここに反映されます
                               </td>
                             </tr>
-                          ))}
+                          )}
                         </tbody>
                       </table>
                     </div>
