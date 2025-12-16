@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth, DEMO_USERS } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
 
@@ -122,9 +123,6 @@ export default function BudgetPage() {
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button onClick={handleOpenModal} disabled={filledRows.length === 0} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: filledRows.length === 0 ? '#ccc' : '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: filledRows.length === 0 ? 'not-allowed' : 'pointer' }}>
               申請
-            </button>
-            <button onClick={() => router.push('/order-contract')} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#0d56c9', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
-              発注契約登録へ
             </button>
           </div>
         </header>

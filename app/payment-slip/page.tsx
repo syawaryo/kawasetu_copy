@@ -13,6 +13,7 @@ import {
   getNextMonth20th,
 } from "@/lib/payment-slip";
 import { useOcrData } from "@/app/contexts/OcrDataContext";
+import Link from "next/link";
 import { useAuth, DEMO_USERS } from "@/app/contexts/AuthContext";
 import { useData } from "@/app/contexts/DataContext";
 import { useRouter } from "next/navigation";

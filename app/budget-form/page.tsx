@@ -6,6 +6,7 @@ import { PDFDocument, TextAlignment } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { useAuth, DEMO_USERS } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
+import Link from "next/link";
 
 interface BudgetFormData {
   工番: string;
@@ -339,9 +340,6 @@ export default function BudgetFormPage() {
             </button>
             <button onClick={handleOpenModal} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
               申請
-            </button>
-            <button onClick={() => router.push("/budget")} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#0d56c9', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
-              予算データ入力へ
             </button>
           </div>
         </div>

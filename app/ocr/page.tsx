@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { analyzeDocument, OcrResponse, OcrField } from "@/lib/ocr";
 import { useOcrData, OcrExtractedData } from "@/app/contexts/OcrDataContext";
 import * as pdfjsLib from "pdfjs-dist";

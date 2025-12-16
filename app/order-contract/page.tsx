@@ -2,60 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth, DEMO_USERS } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
-
-type DetailRow = {
-  no: string;
-  workType: string;
-  taxType: string;
-  execBudget: string;
-  orderedAmount: string;
-  contractAmount: string;
-  contractTax: string;
-  budgetRemain: string;
-  advanceTo: string;
-  maker: string;
-  listPrice: string;
-  meritAmount: string;
-  meritTax: string;
-  meritInclTax: string;
-};
-
-type AdvanceRow = {
-  no: string;
-  companyName: string;
-  ratio: string;
-  shareAmount: string;
-  shareAmountMeritIn: string;
-  advanceType: string;
-};
-
-type VendorRow = {
-  no: string;
-  adopted: boolean;
-  vendorCode: string;
-  vendorName: string;
-  quoteDate: string;
-  note: string;
-  quoteNo: string;
-  quoteAmount: string;
-  afterDiscountAmount: string;
-  decidedDate: string;
-};
-
-type VendorFormData = {
-  legalWelfareDoc: string;
-  specialNote: string;
-  orderComment: string;
-  deadlineDay: string;
-  paymentMonthType: string;
-  paymentDay: string;
-  paymentType: string;
-  commissionRate: string;
-  site: string;
-  deductionCondition: string;
-};
+import {
+  useOrderData,
+  DetailRow,
+  AdvanceRow,
+  VendorRow,
+  VendorFormData,
+  OrderHeader,
+  createEmptyDetailRow,
+  createEmptyAdvanceRow,
+  createEmptyVendorRow,
+  defaultVendorForm,
+} from "../contexts/OrderDataContext";
 
 function toNum(v: string) {
   const n = Number(String(v).replace(/[,\s]/g, ""));
@@ -70,72 +31,60 @@ function calcPercent(contractAmount: string, listPrice: string) {
   return pct.toFixed(1);
 }
 
-const defaultHeader = {
-  orderNo: "PO-2025-000123",
-  historyNo: "01",
-  orderDate: "2025-11-07",
-  createdDate: "2025-11-07",
-  jvShare: "(未選択)",
-  contractFrom: "2025-04-01",
-  contractTo: "2026-03-31",
-  receivedDate: "2025-11-15",
-  stampTarget: true,
-  printOrder: true,
-  printCopy: true,
-  printShosho: true,
-  printInvoice: false,
-  vendor: "株式会社サンプル電材",
-  vendorChanged: false,
-  project: "〇〇ビル新築電気・空調設備工事",
-  dept: "東京支社 工務部",
-  subject: "電気設備 資材発注",
-};
-
-const defaultRows: DetailRow[] = [
-  { no: "0001", workType: "電気設備工事", taxType: "課税", execBudget: "25,000,000", orderedAmount: "15,000,000", contractAmount: "12,500,000", contractTax: "1,250,000", budgetRemain: "10,000,000", advanceTo: "", maker: "パナソニック", listPrice: "15,000,000", meritAmount: "2,500,000", meritTax: "250,000", meritInclTax: "2,750,000" },
-  { no: "0002", workType: "空調設備工事", taxType: "課税", execBudget: "18,000,000", orderedAmount: "10,000,000", contractAmount: "9,800,000", contractTax: "980,000", budgetRemain: "8,000,000", advanceTo: "", maker: "ダイキン工業", listPrice: "12,000,000", meritAmount: "2,200,000", meritTax: "220,000", meritInclTax: "2,420,000" },
-  { no: "0003", workType: "配管工事", taxType: "課税", execBudget: "8,500,000", orderedAmount: "5,000,000", contractAmount: "4,200,000", contractTax: "420,000", budgetRemain: "3,500,000", advanceTo: "サンプル設備", maker: "TOTO", listPrice: "5,000,000", meritAmount: "800,000", meritTax: "80,000", meritInclTax: "880,000" },
-  { no: "0004", workType: "照明器具", taxType: "課税", execBudget: "6,000,000", orderedAmount: "3,500,000", contractAmount: "3,200,000", contractTax: "320,000", budgetRemain: "2,500,000", advanceTo: "", maker: "東芝ライテック", listPrice: "4,000,000", meritAmount: "800,000", meritTax: "80,000", meritInclTax: "880,000" },
-  { no: "0005", workType: "分電盤・制御盤", taxType: "課税", execBudget: "4,500,000", orderedAmount: "2,000,000", contractAmount: "1,850,000", contractTax: "185,000", budgetRemain: "2,500,000", advanceTo: "", maker: "日東工業", listPrice: "2,200,000", meritAmount: "350,000", meritTax: "35,000", meritInclTax: "385,000" },
-  { no: "0006", workType: "ケーブル・配線材", taxType: "課税", execBudget: "3,000,000", orderedAmount: "1,500,000", contractAmount: "1,350,000", contractTax: "135,000", budgetRemain: "1,500,000", advanceTo: "", maker: "住友電工", listPrice: "1,600,000", meritAmount: "250,000", meritTax: "25,000", meritInclTax: "275,000" },
-];
-
-const defaultAdvanceRows: AdvanceRow[] = [
-  { no: "01", companyName: "株式会社サンプル電材", ratio: "60.0", shareAmount: "18,900,000", shareAmountMeritIn: "22,590,000", advanceType: "立替" },
-  { no: "02", companyName: "サンプル設備工業", ratio: "25.0", shareAmount: "7,875,000", shareAmountMeritIn: "9,412,500", advanceType: "立替" },
-  { no: "03", companyName: "東京電工サービス", ratio: "15.0", shareAmount: "4,725,000", shareAmountMeritIn: "5,647,500", advanceType: "直接" },
-  { no: "04", companyName: "", ratio: "", shareAmount: "", shareAmountMeritIn: "", advanceType: "" },
-  { no: "05", companyName: "", ratio: "", shareAmount: "", shareAmountMeritIn: "", advanceType: "" },
-];
-
-const defaultVendorForm: VendorFormData = {
-  legalWelfareDoc: "(未選択)",
-  specialNote: "本工事は建設業法に基づく適正な施工管理を実施すること。\n安全衛生管理については、労働安全衛生法を遵守すること。",
-  orderComment: "納期厳守でお願いします。",
-  deadlineDay: "20",
-  paymentMonthType: "翌月",
-  paymentDay: "",
-  paymentType: "振込",
-  commissionRate: "0",
-  site: "",
-  deductionCondition: "",
-};
-
-const defaultVendorRows: VendorRow[] = [
-  { no: "001", adopted: true, vendorCode: "V001", vendorName: "株式会社サンプル電材", quoteDate: "2025-10-15", note: "最安値", quoteNo: "Q-2025-0123", quoteAmount: "12,500,000", afterDiscountAmount: "12,000,000", decidedDate: "2025-10-20" },
-  { no: "002", adopted: false, vendorCode: "V002", vendorName: "東京電工サービス", quoteDate: "2025-10-16", note: "", quoteNo: "Q-2025-0456", quoteAmount: "13,200,000", afterDiscountAmount: "12,800,000", decidedDate: "" },
-  { no: "003", adopted: false, vendorCode: "V003", vendorName: "サンプル設備工業", quoteDate: "2025-10-17", note: "", quoteNo: "Q-2025-0789", quoteAmount: "14,000,000", afterDiscountAmount: "13,500,000", decidedDate: "" },
-];
-
 export default function OrderContractPage() {
   const router = useRouter();
   const { currentUser } = useAuth();
   const { addSubmission } = useData();
-  const [header, setHeader] = useState(defaultHeader);
-  const [rows, setRows] = useState<DetailRow[]>(defaultRows);
-  const [advanceRows, setAdvanceRows] = useState<AdvanceRow[]>(defaultAdvanceRows);
-  const [vendorForm, setVendorForm] = useState<VendorFormData>(defaultVendorForm);
-  const [vendorRows, setVendorRows] = useState<VendorRow[]>(defaultVendorRows);
+
+  // コンテキストから発注データを取得
+  const {
+    orders,
+    currentOrderIndex,
+    setCurrentOrderIndex,
+    addOrder,
+    removeOrder,
+    updateOrder,
+  } = useOrderData();
+
+  // 現在の発注データへのアクセサ
+  const currentOrder = orders[currentOrderIndex];
+  const header = currentOrder.header;
+  const rows = currentOrder.rows;
+  const advanceRows = currentOrder.advanceRows;
+  const vendorForm = currentOrder.vendorForm;
+  const vendorRows = currentOrder.vendorRows;
+
+  const setHeader = (updater: OrderHeader | ((h: OrderHeader) => OrderHeader)) => {
+    const newHeader = typeof updater === 'function' ? updater(header) : updater;
+    updateOrder(currentOrderIndex, { header: newHeader });
+  };
+  const setRows = (updater: DetailRow[] | ((r: DetailRow[]) => DetailRow[])) => {
+    const newRows = typeof updater === 'function' ? updater(rows) : updater;
+    updateOrder(currentOrderIndex, { rows: newRows });
+  };
+  const setAdvanceRows = (updater: AdvanceRow[] | ((r: AdvanceRow[]) => AdvanceRow[])) => {
+    const newAdvanceRows = typeof updater === 'function' ? updater(advanceRows) : updater;
+    updateOrder(currentOrderIndex, { advanceRows: newAdvanceRows });
+  };
+  const setVendorForm = (updater: VendorFormData | ((f: VendorFormData) => VendorFormData)) => {
+    const newVendorForm = typeof updater === 'function' ? updater(vendorForm) : updater;
+    updateOrder(currentOrderIndex, { vendorForm: newVendorForm });
+  };
+  const setVendorRows = (updater: VendorRow[] | ((r: VendorRow[]) => VendorRow[])) => {
+    const newVendorRows = typeof updater === 'function' ? updater(vendorRows) : updater;
+    updateOrder(currentOrderIndex, { vendorRows: newVendorRows });
+  };
+
+  // 新規発注を追加
+  const handleAddNewOrder = () => {
+    addOrder();
+  };
+
+  // 発注を削除
+  const handleRemoveOrder = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeOrder(idx);
+  };
 
   // 申請モーダル用
   const [showModal, setShowModal] = useState(false);
@@ -206,18 +155,68 @@ export default function OrderContractPage() {
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>（外注）発注契約登録</h1>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button onClick={() => router.push("/budget")} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', color: '#fff', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-              ← 実行予算登録へ戻る
+            <button onClick={handleAddNewOrder} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
+              + 新規登録
             </button>
             <button onClick={handleSave} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#6b7280', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
               保存
             </button>
-            <button onClick={handleOpenModal} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
-              申請
+            <button onClick={() => router.push('/order-inquiry')} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#0d56c9', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
+              注文伺書へ
             </button>
           </div>
         </div>
       </header>
+
+      {/* 発注タブ */}
+      {orders.length > 1 && (
+        <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #dde5f4', padding: '0.5rem 0' }}>
+          <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px', display: 'flex', gap: '0.5rem' }}>
+            {orders.map((_, idx) => (
+              <div
+                key={idx}
+                onClick={() => setCurrentOrderIndex(idx)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.375rem',
+                  padding: '0.375rem 0.5rem 0.375rem 0.75rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
+                  backgroundColor: idx === currentOrderIndex ? '#0d56c9' : '#f0f2f7',
+                  color: idx === currentOrderIndex ? '#fff' : '#686e78',
+                  borderRadius: '0.25rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <span>外注発注({idx + 1})</span>
+                <button
+                  onClick={(e) => handleRemoveOrder(idx, e)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '16px',
+                    height: '16px',
+                    padding: 0,
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    backgroundColor: idx === currentOrderIndex ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                    color: idx === currentOrderIndex ? '#fff' : '#686e78',
+                    border: 'none',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    lineHeight: 1,
+                  }}
+                  title="削除"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '1.5rem 24px' }}>
         {/* 注文書情報 */}
