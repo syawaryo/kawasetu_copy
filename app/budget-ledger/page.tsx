@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { PDFDocument, TextAlignment } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import { useOrderData, BudgetLedgerRow } from "../contexts/OrderDataContext";
 
 // 数値変換
@@ -84,6 +86,7 @@ export default function BudgetLedgerPage() {
 
   const [header, setHeader] = useState<BudgetLedgerHeader>(defaultHeader);
   const [table, setTable] = useState<BudgetLedgerTable>(defaultTable);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   // order-contractの全発注から工種を集めてledgerRowsを構築
   useEffect(() => {
@@ -152,6 +155,91 @@ export default function BudgetLedgerPage() {
     return total;
   }, [computedRows]);
 
+  // PDF出力
+  const handleExportPDF = async () => {
+    setPdfLoading(true);
+    try {
+      // PDFテンプレート読み込み
+      const response = await fetch("/工事実行予算台帳入力欄あり.pdf");
+      const pdfBytes = await response.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(pdfBytes);
+
+      // 日本語フォント埋め込み
+      pdfDoc.registerFontkit(fontkit);
+      const fontResponse = await fetch("/fonts/NotoSansCJKjp-Regular.otf");
+      const fontBytes = await fontResponse.arrayBuffer();
+      const japaneseFont = await pdfDoc.embedFont(fontBytes);
+
+      const form = pdfDoc.getForm();
+
+      // 発注明細の各行をPDFフィールドにマッピング
+      computedRows.forEach((row, idx) => {
+        const rowNum = idx + 1;
+
+        // 工種コードと工種名を1文字スペースで結合してcodeItemに
+        // ordersから元データを取得（workTypeCodeとworkTypeを結合）
+        let codeItemValue = row.codeItem;
+        // ordersからworkTypeCodeを探す
+        orders.forEach((order) => {
+          order.rows.forEach((orderRow) => {
+            if (orderRow.workType === row.codeItem || orderRow.no === row.codeItem) {
+              // workTypeCode と workType を1文字スペースで結合
+              if (orderRow.workTypeCode && orderRow.workType) {
+                codeItemValue = `${orderRow.workTypeCode} ${orderRow.workType}`;
+              } else if (orderRow.workTypeCode) {
+                codeItemValue = orderRow.workTypeCode;
+              } else if (orderRow.workType) {
+                codeItemValue = orderRow.workType;
+              }
+            }
+          });
+        });
+
+        // 各フィールドに値を設定
+        const fieldMappings: { [key: string]: string } = {
+          [`row${rowNum}_codeItem`]: codeItemValue,
+          [`row${rowNum}_budgetAmount`]: row.budgetAmount,
+          [`row${rowNum}_orderAmount`]: row.orderAmount,
+          [`row${rowNum}_balance`]: row.balance,
+        };
+
+        Object.entries(fieldMappings).forEach(([fieldName, value]) => {
+          try {
+            const textField = form.getTextField(fieldName);
+            textField.setFontSize(9);
+            textField.setAlignment(TextAlignment.Center);
+            textField.setText(value || "");
+            textField.updateAppearances(japaneseFont);
+          } catch {
+            console.log(`Field not found: ${fieldName}`);
+          }
+        });
+      });
+
+      // フォームをフラット化
+      form.flatten();
+
+      // PDFをダウンロード
+      const filledPdfBytes = await pdfDoc.save();
+      const ab = new ArrayBuffer(filledPdfBytes.byteLength);
+      new Uint8Array(ab).set(filledPdfBytes);
+      const blob = new Blob([ab], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `工事実行予算台帳.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("PDF出力エラー:", error);
+      alert("PDF出力に失敗しました");
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const inputStyle = {
     width: '100%',
     padding: '0.5rem',
@@ -195,10 +283,11 @@ export default function BudgetLedgerPage() {
               ← 外注発注へ戻る
             </button>
             <button
-              onClick={() => alert('PDF出力機能は準備中です')}
-              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#0d56c9', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}
+              onClick={handleExportPDF}
+              disabled={pdfLoading}
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: pdfLoading ? '#9ca3af' : '#0d56c9', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: pdfLoading ? 'not-allowed' : 'pointer' }}
             >
-              PDF出力
+              {pdfLoading ? 'PDF生成中...' : 'PDF出力'}
             </button>
           </div>
         </div>

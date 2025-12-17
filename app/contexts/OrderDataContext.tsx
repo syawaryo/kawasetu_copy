@@ -2,6 +2,23 @@
 
 import { createContext, useContext, useState, ReactNode } from 'react';
 
+// 今日の日付をYYYY-MM-DD形式で取得
+const getTodayDate = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
+
+// 注文書No.を生成（10桁: 頭2桁 + 年度4桁 + 連番4桁）
+// ※デモ用：実運用ではサーバー側で連番管理が必要
+let orderNoCounter = 1;
+const generateOrderNo = () => {
+  const now = new Date();
+  const year = now.getFullYear().toString(); // 年度4桁
+  const prefix = "01"; // 頭2桁（仮）
+  const seq = String(orderNoCounter++).padStart(4, '0'); // 連番4桁
+  return `${prefix}${year}${seq}`;
+};
+
 // 明細行
 export type DetailRow = {
   no: string;
@@ -90,6 +107,25 @@ export type OrderData = {
   vendorRows: VendorRow[];
 };
 
+// 工事実行予算台帳のヘッダー
+export type BudgetLedgerHeader = {
+  contractAmount: string;   // 受注金額
+  budgetAmount: string;     // 予算金額
+  orderAmount: string;      // 発注額
+  plannedOrder: string;     // 発注予定
+  budgetRemain: string;     // 予算残
+  plannedProfit: string;    // 予定粗利
+};
+
+export const defaultBudgetLedgerHeader: BudgetLedgerHeader = {
+  contractAmount: '',
+  budgetAmount: '',
+  orderAmount: '',
+  plannedOrder: '',
+  budgetRemain: '',
+  plannedProfit: '',
+};
+
 // 工事実行予算台帳の明細行
 export type BudgetLedgerRow = {
   codeItem: string;       // コード・費目
@@ -130,10 +166,10 @@ export const createEmptyBudgetLedgerRow = (): BudgetLedgerRow => ({
 
 // デフォルト値
 export const defaultHeader: OrderHeader = {
-  orderNo: "",
+  orderNo: generateOrderNo(),
   historyNo: "",
-  orderDate: "",
-  createdDate: "",
+  orderDate: getTodayDate(),
+  createdDate: getTodayDate(),
   jvShare: "",
   contractFrom: "",
   contractTo: "",
@@ -176,7 +212,7 @@ export const defaultVendorForm: VendorFormData = {
 };
 
 export const createEmptyOrder = (): OrderData => ({
-  header: { ...defaultHeader },
+  header: { ...defaultHeader, orderNo: generateOrderNo(), orderDate: getTodayDate(), createdDate: getTodayDate() },
   rows: [createEmptyDetailRow(), createEmptyDetailRow(), createEmptyDetailRow()],
   advanceRows: [createEmptyAdvanceRow(), createEmptyAdvanceRow(), createEmptyAdvanceRow()],
   vendorForm: { ...defaultVendorForm },
@@ -192,6 +228,8 @@ interface OrderDataContextType {
   removeOrder: (index: number) => void;
   updateOrder: (index: number, data: Partial<OrderData>) => void;
   // 工事実行予算台帳用
+  ledgerHeader: BudgetLedgerHeader;
+  setLedgerHeader: (header: BudgetLedgerHeader) => void;
   ledgerRows: BudgetLedgerRow[];
   setLedgerRows: (rows: BudgetLedgerRow[]) => void;
   // 発注予定表用
@@ -204,6 +242,7 @@ const OrderDataContext = createContext<OrderDataContextType | undefined>(undefin
 export function OrderDataProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<OrderData[]>([createEmptyOrder()]);
   const [currentOrderIndex, setCurrentOrderIndex] = useState(0);
+  const [ledgerHeader, setLedgerHeader] = useState<BudgetLedgerHeader>({ ...defaultBudgetLedgerHeader });
   const [ledgerRows, setLedgerRows] = useState<BudgetLedgerRow[]>([
     createEmptyBudgetLedgerRow(),
     createEmptyBudgetLedgerRow(),
@@ -248,6 +287,8 @@ export function OrderDataProvider({ children }: { children: ReactNode }) {
         addOrder,
         removeOrder,
         updateOrder,
+        ledgerHeader,
+        setLedgerHeader,
         ledgerRows,
         setLedgerRows,
         orderScheduleRows,

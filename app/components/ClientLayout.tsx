@@ -38,19 +38,42 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <header style={{ backgroundColor: '#132942', color: '#fff', padding: '1rem 0', borderRadius: '0.625rem 0.625rem 0 0' }}>
-        <div style={{ maxWidth: '1160px', margin: '0 auto', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>川崎設備工業管理システム</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{currentUser?.name}</div>
-              <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>
-                {currentUser?.department}
-                {currentUser?.role === 'manager' && ' (承認者)'}
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f5f6f8' }}>
+      <header style={{ backgroundColor: '#1a365d', color: '#fff', padding: '0 24px', height: '56px', display: 'flex', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '32px', height: '32px', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>
+              KS
+            </div>
+            <span style={{ fontSize: '15px', fontWeight: 600, letterSpacing: '0.02em' }}>川崎設備工業</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '32px', height: '32px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600 }}>
+                {currentUser?.name?.charAt(0)}
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 500 }}>{currentUser?.name}</div>
+                <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                  {currentUser?.department}{currentUser?.role === 'manager' && ' / 承認者'}
+                </div>
               </div>
             </div>
-            <button style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.5)', color: '#fff', borderRadius: '0.375rem', cursor: 'pointer', transition: 'all 0.2s ease' }} onClick={handleLogout} onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = '#fff'; }} onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)'; }}>
+            <button
+              style={{
+                padding: '6px 12px',
+                fontSize: '12px',
+                backgroundColor: 'transparent',
+                border: '1px solid rgba(255,255,255,0.3)',
+                color: 'rgba(255,255,255,0.9)',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onClick={handleLogout}
+              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; }}
+            >
               ログアウト
             </button>
           </div>

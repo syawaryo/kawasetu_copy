@@ -1,6 +1,16 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { PDFDocument, TextAlignment } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
+
+// マスターデータの型
+type SubjectMaster = {
+  code: string;
+  name: string;
+  category: string;
+  budget: number;
+};
 import { useRouter } from "next/navigation";
 import { useAuth, DEMO_USERS } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
@@ -89,6 +99,21 @@ export default function OrderContractPage() {
   const [ledgerViewMode, setLedgerViewMode] = useState<'input' | 'pdf'>('input');
   // 注文伺書の選択インデックス
   const [inquiryIndex, setInquiryIndex] = useState(0);
+  // PDF生成中フラグ
+  const [ledgerPdfLoading, setLedgerPdfLoading] = useState(false);
+  // 生成されたPDFのBlobURL
+  const [ledgerPdfUrl, setLedgerPdfUrl] = useState<string | null>(null);
+
+  // マスターデータ
+  const [subjectMaster, setSubjectMaster] = useState<SubjectMaster[]>([]);
+
+  // マスターデータを読み込み
+  useEffect(() => {
+    fetch('/subjectMaster.json')
+      .then(res => res.json())
+      .then(data => setSubjectMaster(data))
+      .catch(err => console.error('マスターデータの読み込みに失敗:', err));
+  }, []);
 
   // コンテキストから発注データを取得
   const {
@@ -100,6 +125,8 @@ export default function OrderContractPage() {
     updateOrder,
     orderScheduleRows,
     setOrderScheduleRows,
+    ledgerHeader,
+    setLedgerHeader,
     ledgerRows,
     setLedgerRows,
   } = useOrderData();
@@ -131,6 +158,28 @@ export default function OrderContractPage() {
   const setVendorRows = (updater: VendorRow[] | ((r: VendorRow[]) => VendorRow[])) => {
     const newVendorRows = typeof updater === 'function' ? updater(vendorRows) : updater;
     updateOrder(currentOrderIndex, { vendorRows: newVendorRows });
+  };
+
+  // 工種コード変更時にマスターから自動入力
+  const handleWorkTypeCodeChange = (idx: number, code: string) => {
+    const next = [...rows];
+
+    // 全角→半角変換してから検索
+    const normalizedCode = code
+      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+      .toUpperCase();
+
+    // マスターから該当するデータを検索
+    const master = subjectMaster.find(m => m.code === normalizedCode);
+    if (master) {
+      next[idx].workTypeCode = master.code;  // マスターの半角コードを使用
+      next[idx].workType = master.name;
+      next[idx].execBudget = master.budget.toString();
+    } else {
+      next[idx].workTypeCode = code;  // マッチしない場合は入力値をそのまま
+    }
+
+    setRows(next);
   };
 
   // 新規発注を追加
@@ -181,6 +230,154 @@ export default function OrderContractPage() {
         }))
     );
   }, [orders]);
+
+  // 工事実行予算台帳ヘッダーの自動計算
+  const ledgerHeaderCalculated = useMemo(() => {
+    // 予算金額の合計（実行予算額の合計）
+    const totalBudget = aggregatedLedgerRows.reduce((sum, row) => {
+      const val = toNum(row.execBudget);
+      return sum + (Number.isFinite(val) ? val : 0);
+    }, 0);
+    // 発注額の合計（契約金額の合計）
+    const totalOrder = aggregatedLedgerRows.reduce((sum, row) => {
+      const val = toNum(row.contractAmount);
+      return sum + (Number.isFinite(val) ? val : 0);
+    }, 0);
+    // 発注予定（手入力）
+    const plannedOrder = toNum(ledgerHeader.plannedOrder) || 0;
+    // 受注金額（手入力）
+    const contractAmount = toNum(ledgerHeader.contractAmount) || 0;
+    // 予算残 = 予算金額 - 発注額 - 発注予定
+    const budgetRemain = totalBudget - totalOrder - plannedOrder;
+    // 予定粗利 = 受注金額 - 発注額 - 発注予定
+    const plannedProfit = contractAmount - totalOrder - plannedOrder;
+
+    return {
+      budgetAmount: totalBudget,
+      orderAmount: totalOrder,
+      budgetRemain,
+      plannedProfit,
+    };
+  }, [aggregatedLedgerRows, ledgerHeader.plannedOrder, ledgerHeader.contractAmount]);
+
+  // 工事実行予算台帳のPDF生成（プレビュー用）
+  const generateLedgerPdf = async () => {
+    setLedgerPdfLoading(true);
+    // 前のURLを解放
+    if (ledgerPdfUrl) {
+      URL.revokeObjectURL(ledgerPdfUrl);
+    }
+    try {
+      // PDFテンプレート読み込み
+      const response = await fetch("/工事実行予算台帳入力欄あり.pdf");
+      const pdfBytes = await response.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(pdfBytes);
+
+      // 日本語フォント埋め込み
+      pdfDoc.registerFontkit(fontkit);
+      const fontResponse = await fetch("/fonts/NotoSansCJKjp-Regular.otf");
+      const fontBytes = await fontResponse.arrayBuffer();
+      const japaneseFont = await pdfDoc.embedFont(fontBytes);
+
+      const form = pdfDoc.getForm();
+
+      // 全角→半角変換関数
+      const toHankaku = (str: string) => str
+        .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+        .replace(/　/g, ' ');
+
+      // 発注明細の各行をPDFフィールドにマッピング
+      aggregatedLedgerRows.forEach((row, idx) => {
+        const rowNum = idx + 1;
+
+        // 工種コードと工種名を半角スペースで結合してcodeItemに
+        let codeItemValue = '';
+        if (row.workTypeCode && row.workType) {
+          codeItemValue = `${toHankaku(row.workTypeCode)} ${row.workType}`;
+        } else if (row.workTypeCode) {
+          codeItemValue = toHankaku(row.workTypeCode);
+        } else if (row.workType) {
+          codeItemValue = row.workType;
+        }
+
+        // 残高計算
+        const budget = toNum(row.execBudget);
+        const contract = toNum(row.contractAmount);
+        const balance = (Number.isFinite(budget) && Number.isFinite(contract))
+          ? (budget - contract).toString()
+          : '';
+
+        // 各フィールドに値を設定（数値系は半角に統一）
+        const fieldMappings: { [key: string]: string } = {
+          [`row${rowNum}_codeItem`]: codeItemValue,
+          [`row${rowNum}_budgetAmount`]: toHankaku(row.execBudget || ''),
+          [`row${rowNum}_orderAmount`]: toHankaku(row.contractAmount || ''),
+          [`row${rowNum}_balance`]: toHankaku(balance),
+        };
+
+        // デバッグ: 書き込み前の値を確認
+        console.log(`=== Row ${rowNum} ===`);
+        console.log('codeItem:', codeItemValue, '| charCodes:', [...codeItemValue].map(c => c.charCodeAt(0)));
+        console.log('budgetAmount:', toHankaku(row.execBudget || ''));
+
+        Object.entries(fieldMappings).forEach(([fieldName, value]) => {
+          try {
+            const textField = form.getTextField(fieldName);
+            textField.setFontSize(9);
+            textField.setAlignment(TextAlignment.Center);
+            textField.setText(value || "");
+            textField.updateAppearances(japaneseFont);
+          } catch {
+            console.log(`Field not found: ${fieldName}`);
+          }
+        });
+      });
+
+      // ヘッダー情報をPDFに書き込み
+      const headerFieldMappings: { [key: string]: string } = {
+        'contractAmount': toHankaku(ledgerHeader.contractAmount || ''),             // 受注金額
+        'inProgressAmount': toHankaku(ledgerHeaderCalculated.budgetAmount.toString()), // 予算金額（自動）
+        'orderAmount': toHankaku(ledgerHeaderCalculated.orderAmount.toString()),    // 発注額（自動）
+        'plannedOrder': toHankaku(ledgerHeader.plannedOrder || ''),                 // 発注予定
+        'budgetRemain': toHankaku(ledgerHeaderCalculated.budgetRemain.toString()),  // 予算残（自動）
+        'plannedProfit': toHankaku(ledgerHeaderCalculated.plannedProfit.toString()), // 予定粗利（自動）
+      };
+
+      Object.entries(headerFieldMappings).forEach(([fieldName, value]) => {
+        try {
+          const textField = form.getTextField(fieldName);
+          textField.setFontSize(9);
+          textField.setAlignment(TextAlignment.Center);
+          textField.setText(value || "");
+          textField.updateAppearances(japaneseFont);
+        } catch {
+          console.log(`Header field not found: ${fieldName}`);
+        }
+      });
+
+      // フォームをフラット化
+      form.flatten();
+
+      // BlobURLを生成してstateに保存
+      const filledPdfBytes = await pdfDoc.save();
+      const ab = new ArrayBuffer(filledPdfBytes.byteLength);
+      new Uint8Array(ab).set(filledPdfBytes);
+      const blob = new Blob([ab], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      setLedgerPdfUrl(url);
+      setLedgerViewMode('pdf');
+    } catch (error) {
+      console.error("PDF生成エラー:", error);
+      alert("PDF生成に失敗しました");
+    } finally {
+      setLedgerPdfLoading(false);
+    }
+  };
+
+  // PDFプレビューを閉じる
+  const closeLedgerPdfPreview = () => {
+    setLedgerViewMode('input');
+  };
 
   // 発注予定表用：全発注の発注明細を集約
   const aggregatedScheduleRows = useMemo(() => {
@@ -293,15 +490,87 @@ export default function OrderContractPage() {
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8rem', fontWeight: 600, color: '#dc3545' }}>発注先 *</label>
-              <input type="text" value={header.vendor} onChange={(e) => setHeader((h) => ({ ...h, vendor: e.target.value }))} style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', boxSizing: 'border-box' }} />
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input type="text" value={header.vendor} onChange={(e) => setHeader((h) => ({ ...h, vendor: e.target.value }))} style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', boxSizing: 'border-box' }} />
+                <button
+                  type="button"
+                  style={{
+                    padding: '0.5rem 1rem',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    backgroundColor: '#0d56c9',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '0.375rem',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.375rem',
+                  }}
+                >
+                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  選択
+                </button>
+              </div>
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8rem', fontWeight: 600, color: '#dc3545' }}>工事 *</label>
-              <input type="text" value={header.project} onChange={(e) => setHeader((h) => ({ ...h, project: e.target.value }))} style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', boxSizing: 'border-box' }} />
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input type="text" value={header.project} onChange={(e) => setHeader((h) => ({ ...h, project: e.target.value }))} style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', boxSizing: 'border-box' }} />
+                <button
+                  type="button"
+                  style={{
+                    padding: '0.5rem 1rem',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    backgroundColor: '#0d56c9',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '0.375rem',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.375rem',
+                  }}
+                >
+                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  選択
+                </button>
+              </div>
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8rem', fontWeight: 600, color: '#dc3545' }}>発行部門 *</label>
-              <input type="text" value={header.dept} onChange={(e) => setHeader((h) => ({ ...h, dept: e.target.value }))} style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', boxSizing: 'border-box' }} />
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input type="text" value={header.dept} onChange={(e) => setHeader((h) => ({ ...h, dept: e.target.value }))} style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', boxSizing: 'border-box' }} />
+                <button
+                  type="button"
+                  style={{
+                    padding: '0.5rem 1rem',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    backgroundColor: '#0d56c9',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '0.375rem',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.375rem',
+                  }}
+                >
+                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  選択
+                </button>
+              </div>
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8rem', fontWeight: 600, color: '#dc3545' }}>件名 *</label>
@@ -337,7 +606,7 @@ export default function OrderContractPage() {
             <tbody>
               {rows.map((r, idx) => (
                 <tr key={idx}>
-                  <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}><input type="text" value={r.workTypeCode} onChange={(e) => { const next = [...rows]; next[idx].workTypeCode = e.target.value; setRows(next); }} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }} /></td>
+                  <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}><input type="text" value={r.workTypeCode} onChange={(e) => handleWorkTypeCodeChange(idx, e.target.value)} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }} /></td>
                   <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}><input type="text" value={r.workType} onChange={(e) => { const next = [...rows]; next[idx].workType = e.target.value; setRows(next); }} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', boxSizing: 'border-box' }} /></td>
                   <td style={{ padding: '0.25rem', borderBottom: '1px solid #f0f2f7' }}>
                     <select value={r.taxType} onChange={(e) => { const next = [...rows]; next[idx].taxType = e.target.value; setRows(next); }} style={{ width: '100%', padding: '0.375rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.25rem', backgroundColor: '#fff', boxSizing: 'border-box' }}>
@@ -661,26 +930,105 @@ export default function OrderContractPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                       <p style={{ fontSize: '1rem', fontWeight: 600, color: '#1a1c20', margin: 0 }}>工事実行予算台帳</p>
-                      <button
-                        onClick={() => setLedgerViewMode(ledgerViewMode === 'input' ? 'pdf' : 'input')}
-                        style={{
-                          padding: '0.375rem 0.75rem',
-                          fontSize: '0.8rem',
-                          fontWeight: 500,
-                          backgroundColor: '#fff',
-                          color: '#0d56c9',
-                          border: '1px solid #0d56c9',
-                          borderRadius: '0.375rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {ledgerViewMode === 'input' ? 'PDFプレビュー' : '発注明細に戻る'}
-                      </button>
+                      {ledgerViewMode === 'input' ? (
+                        <button
+                          onClick={generateLedgerPdf}
+                          disabled={ledgerPdfLoading || aggregatedLedgerRows.length === 0}
+                          style={{
+                            padding: '0.375rem 0.75rem',
+                            fontSize: '0.8rem',
+                            fontWeight: 500,
+                            backgroundColor: '#fff',
+                            color: ledgerPdfLoading || aggregatedLedgerRows.length === 0 ? '#9ca3af' : '#0d56c9',
+                            border: `1px solid ${ledgerPdfLoading || aggregatedLedgerRows.length === 0 ? '#9ca3af' : '#0d56c9'}`,
+                            borderRadius: '0.375rem',
+                            cursor: ledgerPdfLoading || aggregatedLedgerRows.length === 0 ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          {ledgerPdfLoading ? 'PDF生成中...' : 'PDFプレビュー'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={closeLedgerPdfPreview}
+                          style={{
+                            padding: '0.375rem 0.75rem',
+                            fontSize: '0.8rem',
+                            fontWeight: 500,
+                            backgroundColor: '#fff',
+                            color: '#0d56c9',
+                            border: '1px solid #0d56c9',
+                            borderRadius: '0.375rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          発注明細に戻る
+                        </button>
+                      )}
                     </div>
                     <span style={{ fontSize: '0.75rem', color: '#686e78' }}>
                       ※ 発注登録の発注明細から自動反映されます
                     </span>
                   </div>
+
+                  {/* ヘッダー情報 */}
+                  {ledgerViewMode === 'input' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '1rem', marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '0.5rem', border: '1px solid #dde5f4' }}>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.75rem', fontWeight: 600, color: '#1a1c20' }}>受注金額</label>
+                        <input
+                          type="text"
+                          value={ledgerHeader.contractAmount}
+                          onChange={(e) => setLedgerHeader({ ...ledgerHeader, contractAmount: e.target.value })}
+                          style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', boxSizing: 'border-box', textAlign: 'right' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.75rem', fontWeight: 600, color: '#686e78' }}>予算金額（自動）</label>
+                        <input
+                          type="text"
+                          value={ledgerHeaderCalculated.budgetAmount.toLocaleString()}
+                          readOnly
+                          style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', boxSizing: 'border-box', textAlign: 'right', backgroundColor: '#e9ecef', color: '#495057' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.75rem', fontWeight: 600, color: '#686e78' }}>発注額（自動）</label>
+                        <input
+                          type="text"
+                          value={ledgerHeaderCalculated.orderAmount.toLocaleString()}
+                          readOnly
+                          style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', boxSizing: 'border-box', textAlign: 'right', backgroundColor: '#e9ecef', color: '#495057' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.75rem', fontWeight: 600, color: '#1a1c20' }}>発注予定</label>
+                        <input
+                          type="text"
+                          value={ledgerHeader.plannedOrder}
+                          onChange={(e) => setLedgerHeader({ ...ledgerHeader, plannedOrder: e.target.value })}
+                          style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', boxSizing: 'border-box', textAlign: 'right' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.75rem', fontWeight: 600, color: '#686e78' }}>予算残（自動）</label>
+                        <input
+                          type="text"
+                          value={ledgerHeaderCalculated.budgetRemain.toLocaleString()}
+                          readOnly
+                          style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', boxSizing: 'border-box', textAlign: 'right', backgroundColor: '#e9ecef', color: ledgerHeaderCalculated.budgetRemain < 0 ? '#dc2626' : '#495057' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.75rem', fontWeight: 600, color: '#686e78' }}>予定粗利（自動）</label>
+                        <input
+                          type="text"
+                          value={ledgerHeaderCalculated.plannedProfit.toLocaleString()}
+                          readOnly
+                          style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', boxSizing: 'border-box', textAlign: 'right', backgroundColor: '#e9ecef', color: ledgerHeaderCalculated.plannedProfit < 0 ? '#dc2626' : '#495057' }}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* 発注明細からの自動生成テーブル */}
                   {ledgerViewMode === 'input' && (
@@ -730,11 +1078,17 @@ export default function OrderContractPage() {
                   {/* PDFプレビューモード */}
                   {ledgerViewMode === 'pdf' && (
                     <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '600px' }}>
-                      <iframe
-                        src="/工事実行予算台帳（サンプルデータ）.pdf"
-                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
-                        title="工事実行予算台帳"
-                      />
+                      {ledgerPdfUrl ? (
+                        <iframe
+                          src={ledgerPdfUrl}
+                          style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
+                          title="工事実行予算台帳"
+                        />
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#686e78' }}>
+                          PDF生成中...
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
