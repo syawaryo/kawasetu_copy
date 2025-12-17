@@ -206,7 +206,7 @@ export default function OrderContractPage() {
   const [selectedApprover, setSelectedApprover] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'order' | 'budget' | 'schedule'>('order');
+  const [activeTab, setActiveTab] = useState<'budget' | 'schedule' | 'order' | 'quote-request' | 'vendor-quote' | 'progress-invoice'>('budget');
 
   const approvers = DEMO_USERS.filter(u => u.role === 'manager');
 
@@ -392,6 +392,15 @@ export default function OrderContractPage() {
         }))
     );
   }, [orders]);
+
+  // 申請モーダルを開く
+  const handleOpenModal = () => {
+    setShowModal(true);
+    setIsSubmitted(false);
+    if (approvers.length > 0) {
+      setSelectedApprover(approvers[0].id);
+    }
+  };
 
   const handleCloseModal = () => {
     setShowModal(false);
@@ -800,8 +809,23 @@ export default function OrderContractPage() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f0f2f7' }}>
       <header style={{ backgroundColor: '#132942', color: '#fff', padding: '0.75rem 0', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 24px' }}>
+        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>外注発注</h1>
+          <button
+            onClick={handleOpenModal}
+            style={{
+              padding: '0.5rem 1.25rem',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              backgroundColor: '#10b981',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '0.375rem',
+              cursor: 'pointer',
+            }}
+          >
+            申請
+          </button>
         </div>
       </header>
 
@@ -1282,18 +1306,44 @@ export default function OrderContractPage() {
             ) : (
               <>
                 {/* タブ */}
-                <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4' }}>
-                  <button onClick={() => setActiveTab('order')} style={{ padding: '0.75rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'order' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'order' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>注文伺書</button>
-                  <button onClick={() => setActiveTab('budget')} style={{ padding: '0.75rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'budget' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'budget' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>工事実行予算台帳</button>
-                  <button onClick={() => setActiveTab('schedule')} style={{ padding: '0.75rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'schedule' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'schedule' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>発注予定表</button>
+                <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4', overflowX: 'auto' }}>
+                  <button onClick={() => setActiveTab('budget')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'budget' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'budget' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>工事実行予算台帳</button>
+                  <button onClick={() => setActiveTab('schedule')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'schedule' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'schedule' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>発注予定表</button>
+                  <button onClick={() => setActiveTab('order')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'order' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'order' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>注文伺書</button>
+                  <button onClick={() => setActiveTab('quote-request')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'quote-request' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'quote-request' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>見積依頼書</button>
+                  <button onClick={() => setActiveTab('vendor-quote')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'vendor-quote' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'vendor-quote' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>業者見積書</button>
+                  <button onClick={() => setActiveTab('progress-invoice')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'progress-invoice' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'progress-invoice' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>出来高請求書</button>
                 </div>
 
                 {/* PDFプレビュー */}
                 <div style={{ flex: 1, overflow: 'auto', padding: '1rem' }}>
                   <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {activeTab === 'order' && <iframe src="/注文伺書（データ消し・サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="注文伺書" />}
-                    {activeTab === 'budget' && <iframe src="/工事実行予算台帳（サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="工事実行予算台帳" />}
+                    {activeTab === 'budget' && (
+                      ledgerPdfUrl ? (
+                        <iframe src={ledgerPdfUrl} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="工事実行予算台帳" />
+                      ) : (
+                        <div style={{ color: '#686e78', fontSize: '0.9rem' }}>PDFを生成してください</div>
+                      )
+                    )}
                     {activeTab === 'schedule' && <iframe src="/発注予定（サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="発注予定表" />}
+                    {activeTab === 'order' && <iframe src="/注文伺書（データ消し・サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="注文伺書" />}
+                    {activeTab === 'quote-request' && (
+                      <div style={{ color: '#686e78', fontSize: '0.9rem' }}>見積依頼書</div>
+                    )}
+                    {activeTab === 'vendor-quote' && (
+                      docs.find(d => d.type === 'vendor-quote')?.pdfUrl ? (
+                        <iframe src={docs.find(d => d.type === 'vendor-quote')?.pdfUrl} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="業者見積書" />
+                      ) : (
+                        <div style={{ color: '#686e78', fontSize: '0.9rem' }}>PDFが添付されていません</div>
+                      )
+                    )}
+                    {activeTab === 'progress-invoice' && (
+                      docs.find(d => d.type === 'progress-invoice')?.pdfUrl ? (
+                        <iframe src={docs.find(d => d.type === 'progress-invoice')?.pdfUrl} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="出来高請求書" />
+                      ) : (
+                        <div style={{ color: '#686e78', fontSize: '0.9rem' }}>PDFが添付されていません</div>
+                      )
+                    )}
                   </div>
                 </div>
 
