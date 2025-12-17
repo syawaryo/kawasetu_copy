@@ -424,7 +424,7 @@ export default function OrderContractPage() {
         vendor: header.vendor,
         project: header.project,
         subject: header.subject,
-        ordersCount: orders.length,
+        ordersCount: orders.length.toString(),
       },
       assignedTo: selectedApprover,
       approvalFlow: [
