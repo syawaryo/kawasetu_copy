@@ -22,6 +22,7 @@ export type PayRow = {
 };
 
 export type PaymentHeader = {
+  projectName: string;
   slipNo: string;
   slipDate: string;
   paymentType: string;
@@ -81,6 +82,7 @@ export const getNextMonth20th = (): string => {
 
 // 初期値
 export const createInitialHeader = (): PaymentHeader => ({
+  projectName: "",
   slipNo: generateSlipNo(),
   slipDate: getEndOfMonth(),
   paymentType: "定時",

@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth, DEMO_USERS } from "../contexts/AuthContext";
+import { useData } from "../contexts/DataContext";
 
 // 共通スタイル（payment-slipと同様）
 const inputStyle: React.CSSProperties = {
@@ -149,7 +151,11 @@ function SingleRow({
 
 export default function TransferSlipPage() {
   const router = useRouter();
+  const { currentUser } = useAuth();
+  const { addSubmission } = useData();
+
   const [v, setV] = useState({
+    projectName: "",
     slipTitle: "振替伝票",
     inputUserFrom: "000001945",
     inputUserTo: "000001945",
@@ -166,12 +172,60 @@ export default function TransferSlipPage() {
     issue: "notIssued",
   });
 
+  // 申請モーダル用
+  const [showModal, setShowModal] = useState(false);
+  const [selectedApprover, setSelectedApprover] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'slip' | 'attachment'>('slip');
+
+  const approvers = DEMO_USERS.filter(u => u.role === 'manager');
+
   const handleBack = () => {
     router.push('/payment-slip');
   };
 
-  const handleExport = () => {
-    alert('帳票を出力します');
+  // 申請モーダルを開く
+  const handleOpenModal = () => {
+    setShowModal(true);
+    setIsSubmitted(false);
+    if (approvers.length > 0) {
+      setSelectedApprover(approvers[0].id);
+    }
+  };
+
+  // 申請モーダルを閉じる
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setIsSubmitted(false);
+  };
+
+  // 申請を実行
+  const handleSubmit = async () => {
+    if (!selectedApprover || !currentUser) return;
+
+    setIsSubmitting(true);
+
+    addSubmission({
+      applicantId: currentUser.id,
+      applicantName: currentUser.name,
+      type: '振替伝票',
+      title: v.projectName || '工事名未設定',
+      status: 'pending',
+      data: {
+        formDataJson: JSON.stringify(v),
+      },
+      assignedTo: selectedApprover,
+      approvalFlow: [
+        { label: '支店', status: 'completed' },
+        { label: '支社', status: 'current' },
+        { label: '経理部', status: 'pending' },
+        { label: '本社', status: 'pending' },
+      ],
+    });
+
+    setIsSubmitting(false);
+    setIsSubmitted(true);
   };
 
   return (
@@ -192,16 +246,10 @@ export default function TransferSlipPage() {
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
-              onClick={handleBack}
-              style={{ ...buttonStyle, backgroundColor: '#6b7280', color: '#fff' }}
-            >
-              戻る
-            </button>
-            <button
-              onClick={handleExport}
+              onClick={handleOpenModal}
               style={{ ...buttonStyle, backgroundColor: '#10b981', color: '#fff' }}
             >
-              帳票出力
+              申請
             </button>
           </div>
         </div>
@@ -476,6 +524,95 @@ export default function TransferSlipPage() {
           <p style={{ margin: 0, fontSize: '0.8rem', color: '#686e78' }}>ショートカット: F2=印刷 / F5=保存 / F12=検索</p>
         </div>
       </footer>
+
+      {/* 申請モーダル */}
+      {showModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={handleCloseModal}>
+          <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', width: '95%', maxWidth: '1000px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #dde5f4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700, color: '#1a1c20' }}>振替伝票 申請確認</h2>
+              <button style={{ width: 32, height: 32, border: 'none', backgroundColor: 'transparent', fontSize: '1.5rem', cursor: 'pointer', color: '#686e78' }} onClick={handleCloseModal}>×</button>
+            </div>
+
+            {isSubmitted ? (
+              <div style={{ padding: '3rem', textAlign: 'center' }}>
+                <div style={{ padding: '1rem', backgroundColor: '#d1fae5', borderRadius: '0.5rem', color: '#065f46', fontSize: '0.95rem' }}>
+                  申請が完了しました。承認者に通知されました。
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* タブ */}
+                <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4', overflowX: 'auto' }}>
+                  <button onClick={() => setActiveTab('slip')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'slip' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'slip' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>振替伝票</button>
+                  <button onClick={() => setActiveTab('attachment')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'attachment' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'attachment' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>添付書類</button>
+                </div>
+
+                {/* PDFプレビュー */}
+                <div style={{ flex: 1, overflow: 'auto', padding: '1rem' }}>
+                  <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {activeTab === 'slip' && (
+                      <iframe
+                        src="/支払伝票のみ.pdf"
+                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
+                        title="振替伝票"
+                      />
+                    )}
+                    {activeTab === 'attachment' && (
+                      <div style={{ color: '#686e78', fontSize: '0.9rem' }}>添付書類がありません</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 工事名入力・申請先選択 */}
+                <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #dde5f4', backgroundColor: '#f8f9fa', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '250px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>工事名 <span style={{ color: '#ef4444' }}>*</span></label>
+                    <input
+                      type="text"
+                      value={v.projectName}
+                      onChange={(e) => setV((x) => ({ ...x, projectName: e.target.value }))}
+                      placeholder="工事名を入力してください"
+                      style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1, minWidth: '250px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>申請先を選択</label>
+                    <select
+                      value={selectedApprover}
+                      onChange={(e) => setSelectedApprover(e.target.value)}
+                      style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff' }}
+                    >
+                      {approvers.map((approver) => (
+                        <option key={approver.id} value={approver.id}>
+                          {approver.name}（{approver.department}）
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #dde5f4', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              {isSubmitted ? (
+                <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={handleCloseModal}>閉じる</button>
+              ) : (
+                <>
+                  <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: 'transparent', border: '1px solid #dde5f4', color: '#686e78', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={handleCloseModal}>キャンセル</button>
+                  <button
+                    style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: isSubmitting ? '#9ca3af' : '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting || !selectedApprover}
+                  >
+                    {isSubmitting ? '申請中...' : '申請する'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

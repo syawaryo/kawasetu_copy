@@ -78,6 +78,7 @@ export type VendorFormData = {
 
 // 注文書ヘッダー
 export type OrderHeader = {
+  projectName: string;
   orderNo: string;
   historyNo: string;
   orderDate: string;
@@ -166,6 +167,7 @@ export const createEmptyBudgetLedgerRow = (): BudgetLedgerRow => ({
 
 // デフォルト値
 export const defaultHeader: OrderHeader = {
+  projectName: "",
   orderNo: generateOrderNo(),
   historyNo: "",
   orderDate: getTodayDate(),

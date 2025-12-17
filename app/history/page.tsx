@@ -57,9 +57,11 @@ export default function History() {
   const { currentUser } = useAuth();
   const { getMySubmissions } = useData();
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [pdfTab, setPdfTab] = useState<'order' | 'budget' | 'schedule' | 'invoice' | 'slip'>('order');
+  const [pdfTab, setPdfTab] = useState<string>('order');
   const [budgetPdfUrl, setBudgetPdfUrl] = useState<string | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
@@ -130,6 +132,10 @@ export default function History() {
     // タイプに応じて初期タブを設定
     if (submission.type === '支払伝票') {
       setPdfTab('invoice');
+    } else if (submission.type === '発注契約') {
+      setPdfTab('budget');
+    } else if (submission.type === '振替伝票') {
+      setPdfTab('slip');
     } else {
       setPdfTab('order');
     }
@@ -157,9 +163,22 @@ export default function History() {
 
   const allSubmissions = getMySubmissions();
 
+  // 申請種類の一覧を取得
+  const submissionTypes = Array.from(new Set(allSubmissions.map(s => s.type)));
+
   const filteredSubmissions = allSubmissions.filter(s => {
-    if (filter === 'all') return true;
-    return s.status === filter;
+    // ステータスフィルター
+    if (filter !== 'all' && s.status !== filter) return false;
+    // 種類フィルター
+    if (typeFilter !== 'all' && s.type !== typeFilter) return false;
+    // 工事名検索（タイトルとprojectNameの両方を検索）
+    if (searchKeyword) {
+      const keyword = searchKeyword.toLowerCase();
+      const matchTitle = s.title.toLowerCase().includes(keyword);
+      const matchProjectName = s.data?.projectName?.toLowerCase().includes(keyword);
+      if (!matchTitle && !matchProjectName) return false;
+    }
+    return true;
   });
 
   return (
@@ -171,19 +190,44 @@ export default function History() {
 
       {/* フィルター */}
       <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', boxShadow: '0px 10px 40px rgb(68 73 80 / 10%)', padding: '1.5rem', marginBottom: '1.5rem' }}>
-        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: '#1a1c20' }}>申請履歴</h3>
-        <div>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>ステータス</label>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as typeof filter)}
-            style={{ width: '100%', maxWidth: '300px', padding: '0.625rem', fontSize: '0.9rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff' }}
-          >
-            <option value="all">すべて</option>
-            <option value="pending">申請中</option>
-            <option value="approved">承認済み</option>
-            <option value="rejected">差戻し</option>
-          </select>
+        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: '#1a1c20' }}>絞り込み検索</h3>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: '200px' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>工事名検索</label>
+            <input
+              type="text"
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              placeholder="工事名で検索..."
+              style={{ width: '100%', padding: '0.625rem', fontSize: '0.9rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff' }}
+            />
+          </div>
+          <div style={{ minWidth: '150px' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>申請種類</label>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              style={{ width: '100%', padding: '0.625rem', fontSize: '0.9rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff' }}
+            >
+              <option value="all">すべて</option>
+              {submissionTypes.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ minWidth: '150px' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>ステータス</label>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as typeof filter)}
+              style={{ width: '100%', padding: '0.625rem', fontSize: '0.9rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff' }}
+            >
+              <option value="all">すべて</option>
+              <option value="pending">申請中</option>
+              <option value="approved">承認済み</option>
+              <option value="rejected">差戻し</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -191,7 +235,7 @@ export default function History() {
       <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', boxShadow: '0px 10px 40px rgb(68 73 80 / 10%)', overflow: 'hidden' }}>
         {filteredSubmissions.length === 0 ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: '#686e78', fontSize: '0.9rem' }}>
-            {filter === 'all' ? '申請データがありません' : '該当する申請がありません'}
+            {allSubmissions.length === 0 ? '申請データがありません' : '該当する申請がありません'}
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
@@ -250,13 +294,13 @@ export default function History() {
 
       {/* 詳細モーダル */}
       {showDetailModal && selectedSubmission && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={handleCloseDetail}>
-          <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', width: '90%', maxWidth: '700px', maxHeight: '80vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '2rem' }} onClick={handleCloseDetail}>
+          <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', width: '100%', maxWidth: '1400px', height: '90vh', overflow: 'auto', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ padding: '1.5rem', borderBottom: '1px solid #dde5f4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700, color: '#1a1c20' }}>申請詳細</h2>
               <button style={{ width: 32, height: 32, border: 'none', backgroundColor: 'transparent', fontSize: '1.5rem', cursor: 'pointer', color: '#686e78' }} onClick={handleCloseDetail}>×</button>
             </div>
-            <div style={{ padding: '1.5rem' }}>
+            <div style={{ padding: '1.5rem', flex: 1, overflow: 'auto' }}>
               {/* 基本情報 */}
               <div style={{ marginBottom: '1.5rem' }}>
                 <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1a1c20', marginBottom: '0.75rem' }}>基本情報</div>
@@ -347,7 +391,7 @@ export default function History() {
               {selectedSubmission.type === '実行予算書' && selectedSubmission.data?.formDataJson && (
                 <div style={{ marginBottom: '1.5rem' }}>
                   <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1a1c20', marginBottom: '0.75rem' }}>予算書プレビュー</div>
-                  <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '600px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {generatingPdf ? (
                       <div style={{ color: '#686e78', fontSize: '0.9rem' }}>PDFを生成中...</div>
                     ) : budgetPdfUrl ? (
@@ -403,7 +447,7 @@ export default function History() {
                   </div>
 
                   {/* PDFプレビュー */}
-                  <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '600px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {pdfTab === 'invoice' && (
                       selectedSubmission.data?.invoiceBase64 ? (
                         <iframe
@@ -432,76 +476,53 @@ export default function History() {
                   <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1a1c20', marginBottom: '0.75rem' }}>添付書類プレビュー</div>
 
                   {/* タブ */}
-                  <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4', marginBottom: '1rem' }}>
-                    <button
-                      onClick={() => setPdfTab('order')}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        border: 'none',
-                        backgroundColor: pdfTab === 'order' ? '#fff' : '#f8f9fa',
-                        color: pdfTab === 'order' ? '#0d56c9' : '#686e78',
-                        borderBottom: pdfTab === 'order' ? '2px solid #0d56c9' : '2px solid transparent',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      注文伺書
-                    </button>
-                    <button
-                      onClick={() => setPdfTab('budget')}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        border: 'none',
-                        backgroundColor: pdfTab === 'budget' ? '#fff' : '#f8f9fa',
-                        color: pdfTab === 'budget' ? '#0d56c9' : '#686e78',
-                        borderBottom: pdfTab === 'budget' ? '2px solid #0d56c9' : '2px solid transparent',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      工事実行予算台帳
-                    </button>
-                    <button
-                      onClick={() => setPdfTab('schedule')}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        border: 'none',
-                        backgroundColor: pdfTab === 'schedule' ? '#fff' : '#f8f9fa',
-                        color: pdfTab === 'schedule' ? '#0d56c9' : '#686e78',
-                        borderBottom: pdfTab === 'schedule' ? '2px solid #0d56c9' : '2px solid transparent',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      発注予定表
-                    </button>
+                  <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                    <button onClick={() => setPdfTab('budget')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: pdfTab === 'budget' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'budget' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>工事実行予算台帳</button>
+                    <button onClick={() => setPdfTab('schedule')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: pdfTab === 'schedule' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'schedule' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>発注予定表</button>
+                    {Array.from({ length: Number(selectedSubmission.data?.ordersCount) || 1 }, (_, idx) => (
+                      <button key={`order-${idx}`} onClick={() => setPdfTab(`order-${idx}`)} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: pdfTab === `order-${idx}` ? '#0d56c9' : '#686e78', borderBottom: pdfTab === `order-${idx}` ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>注文伺書({idx + 1})</button>
+                    ))}
+                    <button onClick={() => setPdfTab('quote-request')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: pdfTab === 'quote-request' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'quote-request' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>見積依頼書</button>
+                    <button onClick={() => setPdfTab('vendor-quote')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: pdfTab === 'vendor-quote' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'vendor-quote' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>業者見積書</button>
+                    <button onClick={() => setPdfTab('progress-invoice')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: pdfTab === 'progress-invoice' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'progress-invoice' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>出来高請求書</button>
                   </div>
 
                   {/* PDFプレビュー */}
-                  <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '400px' }}>
-                    {pdfTab === 'order' && (
-                      <iframe
-                        src="/注文伺書（データ消し・サンプルデータ）.pdf"
-                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
-                        title="注文伺書"
-                      />
+                  <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '600px' }}>
+                    {pdfTab === 'budget' && <iframe src="/工事実行予算台帳（サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="工事実行予算台帳" />}
+                    {pdfTab === 'schedule' && <iframe src="/発注予定（サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="発注予定表" />}
+                    {pdfTab.startsWith('order-') && <iframe src="/注文伺書（データ消し・サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title={`注文伺書(${parseInt(pdfTab.split('-')[1]) + 1})`} />}
+                    {pdfTab === 'quote-request' && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#686e78', fontSize: '0.9rem' }}>PDFがありません</div>
                     )}
-                    {pdfTab === 'budget' && (
-                      <iframe
-                        src="/工事実行予算台帳（サンプルデータ）.pdf"
-                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
-                        title="工事実行予算台帳"
-                      />
+                    {pdfTab === 'vendor-quote' && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#686e78', fontSize: '0.9rem' }}>PDFがありません</div>
                     )}
-                    {pdfTab === 'schedule' && (
-                      <iframe
-                        src="/発注予定（サンプルデータ）.pdf"
-                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
-                        title="発注予定表"
-                      />
+                    {pdfTab === 'progress-invoice' && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#686e78', fontSize: '0.9rem' }}>PDFがありません</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 振替伝票の場合はPDFプレビューを表示 */}
+              {selectedSubmission.type === '振替伝票' && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1a1c20', marginBottom: '0.75rem' }}>添付書類プレビュー</div>
+                  <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4', marginBottom: '1rem' }}>
+                    <button onClick={() => setPdfTab('slip')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: pdfTab === 'slip' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'slip' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>振替伝票</button>
+                    <button onClick={() => setPdfTab('attachment')} style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: pdfTab === 'attachment' ? '#0d56c9' : '#686e78', borderBottom: pdfTab === 'attachment' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer' }}>添付書類</button>
+                  </div>
+                  <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '600px' }}>
+                    {pdfTab === 'slip' && (
+                      <iframe src="/支払伝票のみ.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="振替伝票" />
+                    )}
+                    {pdfTab === 'attachment' && (
+                      selectedSubmission.data?.attachmentBase64 ? (
+                        <iframe src={selectedSubmission.data.attachmentBase64} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="添付書類" />
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#686e78', fontSize: '0.9rem' }}>PDFがありません</div>
+                      )
                     )}
                   </div>
                 </div>

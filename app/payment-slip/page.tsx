@@ -265,7 +265,7 @@ export default function PaymentSlipPage() {
       applicantId: currentUser.id,
       applicantName: currentUser.name,
       type: '支払伝票',
-      title: h.payee || '支払先未設定',
+      title: h.projectName || '工事名未設定',
       status: 'pending',
       data: {
         headerJson: JSON.stringify(h),
@@ -360,9 +360,6 @@ export default function PaymentSlipPage() {
               }}
             >
               {saving ? '保存中...' : '保存'}
-            </button>
-            <button onClick={handleOpenModal} style={{ ...buttonStyle, backgroundColor: '#10b981', color: '#fff' }}>
-              申請
             </button>
             <button
               onClick={() => router.push('/transfer-slip')}
@@ -960,20 +957,32 @@ export default function PaymentSlipPage() {
                   </div>
                 </div>
 
-                {/* 申請先選択 */}
-                <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #dde5f4', backgroundColor: '#f8f9fa' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>申請先を選択</label>
-                  <select
-                    value={selectedApprover}
-                    onChange={(e) => setSelectedApprover(e.target.value)}
-                    style={{ width: '100%', maxWidth: '300px', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff' }}
-                  >
-                    {approvers.map((approver) => (
-                      <option key={approver.id} value={approver.id}>
-                        {approver.name}（{approver.department}）
-                      </option>
-                    ))}
-                  </select>
+                {/* 工事名入力・申請先選択 */}
+                <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #dde5f4', backgroundColor: '#f8f9fa', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '250px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>工事名 <span style={{ color: '#ef4444' }}>*</span></label>
+                    <input
+                      type="text"
+                      value={h.projectName}
+                      onChange={(e) => setH((x) => ({ ...x, projectName: e.target.value }))}
+                      placeholder="工事名を入力してください"
+                      style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1, minWidth: '250px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>申請先を選択</label>
+                    <select
+                      value={selectedApprover}
+                      onChange={(e) => setSelectedApprover(e.target.value)}
+                      style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff' }}
+                    >
+                      {approvers.map((approver) => (
+                        <option key={approver.id} value={approver.id}>
+                          {approver.name}（{approver.department}）
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </>
             )}

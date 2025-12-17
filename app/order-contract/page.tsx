@@ -206,7 +206,7 @@ export default function OrderContractPage() {
   const [selectedApprover, setSelectedApprover] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'budget' | 'schedule' | 'order' | 'quote-request' | 'vendor-quote' | 'progress-invoice'>('budget');
+  const [activeTab, setActiveTab] = useState<string>('budget');
 
   const approvers = DEMO_USERS.filter(u => u.role === 'manager');
 
@@ -417,13 +417,14 @@ export default function OrderContractPage() {
       applicantId: currentUser.id,
       applicantName: currentUser.name,
       type: '発注契約',
-      title: header.subject,
+      title: header.projectName || '工事名未設定',
       status: 'pending',
       data: {
         orderNo: header.orderNo,
         vendor: header.vendor,
         project: header.project,
         subject: header.subject,
+        ordersCount: orders.length,
       },
       assignedTo: selectedApprover,
       approvalFlow: [
@@ -1309,7 +1310,9 @@ export default function OrderContractPage() {
                 <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4', overflowX: 'auto' }}>
                   <button onClick={() => setActiveTab('budget')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'budget' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'budget' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>工事実行予算台帳</button>
                   <button onClick={() => setActiveTab('schedule')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'schedule' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'schedule' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>発注予定表</button>
-                  <button onClick={() => setActiveTab('order')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'order' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'order' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>注文伺書</button>
+                  {orders.map((_, idx) => (
+                    <button key={`order-${idx}`} onClick={() => setActiveTab(`order-${idx}`)} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === `order-${idx}` ? '#0d56c9' : '#686e78', borderBottom: activeTab === `order-${idx}` ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>注文伺書({idx + 1})</button>
+                  ))}
                   <button onClick={() => setActiveTab('quote-request')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'quote-request' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'quote-request' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>見積依頼書</button>
                   <button onClick={() => setActiveTab('vendor-quote')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'vendor-quote' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'vendor-quote' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>業者見積書</button>
                   <button onClick={() => setActiveTab('progress-invoice')} style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', fontWeight: 600, border: 'none', backgroundColor: '#fff', color: activeTab === 'progress-invoice' ? '#0d56c9' : '#686e78', borderBottom: activeTab === 'progress-invoice' ? '2px solid #0d56c9' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap' }}>出来高請求書</button>
@@ -1326,35 +1329,49 @@ export default function OrderContractPage() {
                       )
                     )}
                     {activeTab === 'schedule' && <iframe src="/発注予定（サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="発注予定表" />}
-                    {activeTab === 'order' && <iframe src="/注文伺書（データ消し・サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="注文伺書" />}
+                    {activeTab.startsWith('order-') && (
+                      <iframe src="/注文伺書（データ消し・サンプルデータ）.pdf" style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title={`注文伺書(${parseInt(activeTab.split('-')[1]) + 1})`} />
+                    )}
                     {activeTab === 'quote-request' && (
-                      <div style={{ color: '#686e78', fontSize: '0.9rem' }}>見積依頼書</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#686e78', fontSize: '0.9rem' }}>PDFがありません</div>
                     )}
                     {activeTab === 'vendor-quote' && (
                       docs.find(d => d.type === 'vendor-quote')?.pdfUrl ? (
                         <iframe src={docs.find(d => d.type === 'vendor-quote')?.pdfUrl} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="業者見積書" />
                       ) : (
-                        <div style={{ color: '#686e78', fontSize: '0.9rem' }}>PDFが添付されていません</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#686e78', fontSize: '0.9rem' }}>PDFがありません</div>
                       )
                     )}
                     {activeTab === 'progress-invoice' && (
                       docs.find(d => d.type === 'progress-invoice')?.pdfUrl ? (
                         <iframe src={docs.find(d => d.type === 'progress-invoice')?.pdfUrl} style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }} title="出来高請求書" />
                       ) : (
-                        <div style={{ color: '#686e78', fontSize: '0.9rem' }}>PDFが添付されていません</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#686e78', fontSize: '0.9rem' }}>PDFがありません</div>
                       )
                     )}
                   </div>
                 </div>
 
-                {/* 申請先選択 */}
-                <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #dde5f4', backgroundColor: '#f8f9fa' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>申請先を選択</label>
-                  <select value={selectedApprover} onChange={(e) => setSelectedApprover(e.target.value)} style={{ width: '100%', maxWidth: '300px', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff' }}>
-                    {approvers.map((approver) => (
-                      <option key={approver.id} value={approver.id}>{approver.name}（{approver.department}）</option>
-                    ))}
-                  </select>
+                {/* 工事名入力・申請先選択 */}
+                <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #dde5f4', backgroundColor: '#f8f9fa', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '250px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>工事名 <span style={{ color: '#ef4444' }}>*</span></label>
+                    <input
+                      type="text"
+                      value={header.projectName}
+                      onChange={(e) => setHeader((h) => ({ ...h, projectName: e.target.value }))}
+                      placeholder="工事名を入力してください"
+                      style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1, minWidth: '250px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>申請先を選択</label>
+                    <select value={selectedApprover} onChange={(e) => setSelectedApprover(e.target.value)} style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff' }}>
+                      {approvers.map((approver) => (
+                        <option key={approver.id} value={approver.id}>{approver.name}（{approver.department}）</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </>
             )}

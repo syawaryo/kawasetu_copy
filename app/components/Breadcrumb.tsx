@@ -14,6 +14,7 @@ const breadcrumbMap: Record<string, { label: string; parent?: string }> = {
   '/order-inquiry': { label: '注文伺書', parent: '/order-contract' },
   '/budget-ledger': { label: '工事実行予算台帳', parent: '/order-inquiry' },
   '/payment-slip': { label: '支払伝票', parent: '/ocr' },
+  '/transfer-slip': { label: '振替伝票', parent: '/payment-slip' },
   '/history': { label: '申請履歴' },
   '/approval': { label: '承認履歴' },
   '/my-storage': { label: '保存履歴' },

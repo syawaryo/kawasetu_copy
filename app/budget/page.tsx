@@ -29,6 +29,7 @@ export default function BudgetPage() {
   const [budgetDate, setBudgetDate] = useState(new Date().toISOString().split('T')[0]);
   const [showModal, setShowModal] = useState(false);
   const [selectedApprover, setSelectedApprover] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [subjectMaster, setSubjectMaster] = useState<SubjectMaster[]>([]);
@@ -75,6 +76,7 @@ export default function BudgetPage() {
   const handleOpenModal = () => {
     setShowModal(true);
     setIsSubmitted(false);
+    setProjectName("");
     if (approvers.length > 0) {
       setSelectedApprover(approvers[0].id);
     }
@@ -86,7 +88,7 @@ export default function BudgetPage() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedApprover || !currentUser) return;
+    if (!selectedApprover || !currentUser || !projectName) return;
 
     setIsSubmitting(true);
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -95,9 +97,10 @@ export default function BudgetPage() {
       applicantId: currentUser.id,
       applicantName: currentUser.name,
       type: '実行予算',
-      title: workCode,
+      title: projectName,
       status: 'pending',
       data: {
+        projectName,
         workCode,
         budgetDate,
         totalBudget: totalBudget.toString(),
@@ -270,15 +273,21 @@ export default function BudgetPage() {
                     </table>
                   </div>
 
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>申請先を選択</label>
-                    <select value={selectedApprover} onChange={(e) => setSelectedApprover(e.target.value)} style={{ width: '100%', padding: '0.625rem', fontSize: '0.9rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff' }}>
-                      {approvers.map((approver) => (
-                        <option key={approver.id} value={approver.id}>
-                          {approver.name}（{approver.department}）
-                        </option>
-                      ))}
-                    </select>
+                  <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '200px' }}>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>工事名 <span style={{ color: '#ef4444' }}>*</span></label>
+                      <input type="text" value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="工事名を入力" style={{ width: '100%', padding: '0.625rem', fontSize: '0.9rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff', boxSizing: 'border-box' }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: '200px' }}>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>申請先を選択</label>
+                      <select value={selectedApprover} onChange={(e) => setSelectedApprover(e.target.value)} style={{ width: '100%', padding: '0.625rem', fontSize: '0.9rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff' }}>
+                        {approvers.map((approver) => (
+                          <option key={approver.id} value={approver.id}>
+                            {approver.name}（{approver.department}）
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </>
               )}
@@ -289,7 +298,7 @@ export default function BudgetPage() {
               ) : (
                 <>
                   <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: 'transparent', border: '1px solid #dde5f4', color: '#686e78', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={handleCloseModal}>キャンセル</button>
-                  <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: isSubmitting || !selectedApprover ? '#ccc' : '#0d56c9', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: isSubmitting || !selectedApprover ? 'not-allowed' : 'pointer' }} onClick={handleSubmit} disabled={isSubmitting || !selectedApprover}>
+                  <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: isSubmitting || !selectedApprover || !projectName ? '#ccc' : '#0d56c9', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: isSubmitting || !selectedApprover || !projectName ? 'not-allowed' : 'pointer' }} onClick={handleSubmit} disabled={isSubmitting || !selectedApprover || !projectName}>
                     {isSubmitting ? '申請中...' : '申請する'}
                   </button>
                 </>
