@@ -179,6 +179,7 @@ export default function OcrPage() {
   const [dragOver, setDragOver] = useState(false);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null);
+  const [editedData, setEditedData] = useState<Record<string, string>>({});
 
   const imageRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -194,31 +195,30 @@ export default function OcrPage() {
     return hasT ? `T${digits}` : digits;
   };
 
-  // OCR結果をContextに保存して遷移
+  // OCR結果をContextに保存して遷移（編集済みデータを使用）
   const handleGoToPaymentSlip = useCallback(() => {
     if (result?.success && result.data) {
-      const data = result.data;
       const extracted: OcrExtractedData = {
-        subtotalAmount: data.subtotalAmount?.content,
-        consumptionTaxAmount: data.consumptionTaxAmount?.content,
-        totalAmount: data.totalAmount?.content,
-        payeeCompanyName: data.payeeCompanyName?.content,
-        payeePostalCode: data.payeePostalCode?.content,
-        payeeAddress: data.payeeAddress?.content,
-        payeePhoneNumber: data.payeePhoneNumber?.content,
-        payeeEmailAddress: data.payeeEmailAddress?.content,
-        bankName: data.bankName?.content,
-        bankBranchName: data.bankBranchName?.content,
-        bankAccountType: data.bankAccountType?.content,
-        bankAccountNumber: data.bankAccountNumber?.content,
-        payeeCompanyNameKana: data.payeeCompanyNameKana?.content,
-        paymentDueDate: data.paymentDueDate?.content,
-        invoiceRegNo: formatInvoiceRegNo(data.invoiceRegNo?.content),
+        subtotalAmount: editedData.subtotalAmount || undefined,
+        consumptionTaxAmount: editedData.consumptionTaxAmount || undefined,
+        totalAmount: editedData.totalAmount || undefined,
+        payeeCompanyName: editedData.payeeCompanyName || undefined,
+        payeePostalCode: editedData.payeePostalCode || undefined,
+        payeeAddress: editedData.payeeAddress || undefined,
+        payeePhoneNumber: editedData.payeePhoneNumber || undefined,
+        payeeEmailAddress: editedData.payeeEmailAddress || undefined,
+        bankName: editedData.bankName || undefined,
+        bankBranchName: editedData.bankBranchName || undefined,
+        bankAccountType: editedData.bankAccountType || undefined,
+        bankAccountNumber: editedData.bankAccountNumber || undefined,
+        payeeCompanyNameKana: editedData.payeeCompanyNameKana || undefined,
+        paymentDueDate: editedData.paymentDueDate || undefined,
+        invoiceRegNo: formatInvoiceRegNo(editedData.invoiceRegNo),
         invoiceItems: [],
       };
 
-      // 明細行を抽出
-      const itemKeys = Object.keys(data).filter(k => k.startsWith('invoiceItems['));
+      // 明細行を抽出（編集済みデータから）
+      const itemKeys = Object.keys(editedData).filter(k => k.startsWith('invoiceItems['));
       const itemMap: Record<number, Record<string, string>> = {};
       itemKeys.forEach(key => {
         const match = key.match(/^invoiceItems\[(\d+)\]\.(\w+)$/);
@@ -226,7 +226,7 @@ export default function OcrPage() {
           const idx = parseInt(match[1], 10);
           const field = match[2];
           if (!itemMap[idx]) itemMap[idx] = {};
-          itemMap[idx][field] = data[key]?.content || '';
+          itemMap[idx][field] = editedData[key] || '';
         }
       });
       extracted.invoiceItems = Object.keys(itemMap)
@@ -244,7 +244,7 @@ export default function OcrPage() {
       setOcrData(extracted);
     }
     router.push('/payment-slip');
-  }, [result, file, setOcrData, router]);
+  }, [result, editedData, file, setOcrData, router]);
 
   // PDFをCanvasにレンダリング
   const renderPdf = useCallback(async (pdfDoc: pdfjsLib.PDFDocumentProxy) => {
@@ -323,8 +323,17 @@ export default function OcrPage() {
     if (!file) return;
     setLoading(true);
     setResult(null);
+    setEditedData({});
     const res = await analyzeDocument(file);
     setResult(res);
+    // OCR結果をeditedDataに初期化
+    if (res.success && res.data) {
+      const initial: Record<string, string> = {};
+      Object.entries(res.data).forEach(([key, value]) => {
+        initial[key] = value?.content || '';
+      });
+      setEditedData(initial);
+    }
     setLoading(false);
   }, [file]);
 
@@ -484,7 +493,7 @@ export default function OcrPage() {
               <div style={cardHeaderStyle}>
                 <h2 style={cardTitleStyle}>抽出データ</h2>
               </div>
-              <div style={{ padding: '1rem', maxHeight: '600px', overflow: 'auto' }}>
+              <div style={{ padding: '1rem', maxHeight: '800px', overflow: 'auto' }}>
                 {loading && (
                   <div style={{ textAlign: 'center', padding: '2rem', color: '#0d56c9' }}>
                     <svg width="32" height="32" viewBox="0 0 24 24" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 0.5rem' }}>
@@ -508,12 +517,17 @@ export default function OcrPage() {
                 )}
 
                 {hasResult && (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', tableLayout: 'fixed' }}>
+                    <colgroup>
+                      <col style={{ width: '24px' }} />
+                      <col style={{ width: '120px' }} />
+                      <col />
+                    </colgroup>
                     <thead>
                       <tr style={{ backgroundColor: '#f9fafb' }}>
-                        <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '2px solid #e5e7eb', width: 24 }}></th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}></th>
                         <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>フィールド</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>値</th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>値（編集可）</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -526,7 +540,6 @@ export default function OcrPage() {
                             style={{
                               borderBottom: '1px solid #e5e7eb',
                               backgroundColor: isHovered ? `${color}20` : 'transparent',
-                              cursor: 'pointer',
                             }}
                             onMouseEnter={() => setHoveredKey(key)}
                             onMouseLeave={() => setHoveredKey(null)}
@@ -534,8 +547,23 @@ export default function OcrPage() {
                             <td style={{ padding: '0.4rem' }}>
                               <div style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: color }} />
                             </td>
-                            <td style={{ padding: '0.4rem', fontWeight: 500, color: '#374151' }}>{getFieldLabel(key)}</td>
-                            <td style={{ padding: '0.4rem', color: '#1f2937' }}>{value?.content || '-'}</td>
+                            <td style={{ padding: '0.4rem', fontWeight: 500, color: '#374151', fontSize: '0.75rem', lineHeight: 1.3 }}>{getFieldLabel(key)}</td>
+                            <td style={{ padding: '0.4rem' }}>
+                              <input
+                                type="text"
+                                value={editedData[key] || ''}
+                                onChange={(e) => setEditedData(prev => ({ ...prev, [key]: e.target.value }))}
+                                style={{
+                                  width: '100%',
+                                  padding: '0.25rem 0.5rem',
+                                  fontSize: '0.8rem',
+                                  border: '1px solid #dde5f4',
+                                  borderRadius: '0.25rem',
+                                  backgroundColor: '#fff',
+                                  boxSizing: 'border-box',
+                                }}
+                              />
+                            </td>
                           </tr>
                         );
                       })}
