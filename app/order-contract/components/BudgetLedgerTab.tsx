@@ -1,11 +1,7 @@
 "use client";
 
+import { BudgetLedgerHeader } from "../../contexts/OrderDataContext";
 import { toNum } from "../utils";
-
-interface LedgerHeader {
-  contractAmount: string;
-  plannedOrder: string;
-}
 
 interface LedgerHeaderCalculated {
   budgetAmount: number;
@@ -25,8 +21,8 @@ interface AggregatedLedgerRow {
 
 interface BudgetLedgerTabProps {
   ledgerViewMode: 'input' | 'pdf';
-  ledgerHeader: LedgerHeader;
-  setLedgerHeader: (h: LedgerHeader) => void;
+  ledgerHeader: BudgetLedgerHeader;
+  setLedgerHeader: (h: BudgetLedgerHeader) => void;
   ledgerHeaderCalculated: LedgerHeaderCalculated;
   aggregatedLedgerRows: AggregatedLedgerRow[];
   ledgerPdfLoading: boolean;
