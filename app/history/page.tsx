@@ -361,11 +361,11 @@ export default function History() {
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                         <thead>
                           <tr>
-                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, border: '1px solid #dde5f4', textAlign: 'left' }}>No.</th>
-                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, border: '1px solid #dde5f4', textAlign: 'left' }}>工種コード</th>
-                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, border: '1px solid #dde5f4', textAlign: 'left' }}>工種名称</th>
-                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, border: '1px solid #dde5f4', textAlign: 'left' }}>費目</th>
-                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, border: '1px solid #dde5f4', textAlign: 'right' }}>実行予算</th>
+                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, border: '1px solid #dde5f4', textAlign: 'left', color: '#1a1c20' }}>No.</th>
+                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, border: '1px solid #dde5f4', textAlign: 'left', color: '#1a1c20' }}>工種コード</th>
+                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, border: '1px solid #dde5f4', textAlign: 'left', color: '#1a1c20' }}>工種名称</th>
+                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, border: '1px solid #dde5f4', textAlign: 'left', color: '#1a1c20' }}>費目</th>
+                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, border: '1px solid #dde5f4', textAlign: 'right', color: '#1a1c20' }}>実行予算</th>
                           </tr>
                         </thead>
                         <tbody>
