@@ -50,7 +50,11 @@ const menuData = [
         { name: '支払残高一覧表', description: '支払残高の一覧確認' },
         { name: '支払先宛名シール', description: '宛名シールの作成' }
       ]},
-      { id: 'balance', name: '各種残高', items: [] }
+      { id: 'balance', name: '各種帳票', items: [
+        { name: '工事実行予算台帳', description: '工事実行予算の台帳管理' },
+        { name: '発注予定表', description: '発注予定の一覧管理' },
+        { name: '見積依頼書', description: '見積依頼書の作成・管理' }
+      ] }
     ]
   },
   {
@@ -190,7 +194,13 @@ export default function Home() {
                 style={{ backgroundColor: '#fff', borderRadius: '0.5rem', boxShadow: '0px 2px 8px rgb(68 73 80 / 6%)', padding: '0.75rem 1rem', cursor: 'pointer', transition: 'all 0.2s ease', border: '1px solid transparent', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
                 onClick={() => {
                   if (item.name === '(外注)発注契約登録') {
-                    router.push('/order-contract');
+                    router.push('/subcontract-order');
+                  } else if (item.name === '工事実行予算台帳') {
+                    router.push('/budget-ledger-page');
+                  } else if (item.name === '発注予定表') {
+                    router.push('/order-schedule-page');
+                  } else if (item.name === '見積依頼書') {
+                    router.push('/quote-request-page');
                   } else {
                     alert(`${item.name}の詳細ページに遷移します`);
                   }

@@ -18,6 +18,10 @@ const breadcrumbMap: Record<string, { label: string; parent?: string }> = {
   '/history': { label: '申請履歴' },
   '/approval': { label: '承認履歴' },
   '/my-storage': { label: '保存履歴' },
+  '/subcontract-order': { label: '(外注)発注契約登録', parent: '/' },
+  '/budget-ledger-page': { label: '工事実行予算台帳', parent: '/' },
+  '/order-schedule-page': { label: '発注予定表', parent: '/' },
+  '/quote-request-page': { label: '見積依頼書', parent: '/' },
 };
 
 export default function Breadcrumb() {
