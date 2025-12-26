@@ -1,19 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 
 interface ScheduleRow {
   workTypeCode: string;
   workType: string;
   vendor: string;
   amount: string;
-}
-
-interface HierarchyRow {
-  hierarchyType: string;
-  hierarchyData: string;
-  hierarchy: string;
 }
 
 const createEmptyRow = (): ScheduleRow => ({
@@ -23,41 +16,18 @@ const createEmptyRow = (): ScheduleRow => ({
   amount: '',
 });
 
-const createEmptyHierarchyRow = (): HierarchyRow => ({
-  hierarchyType: '',
-  hierarchyData: '',
-  hierarchy: '',
-});
-
 export default function OrderSchedulePage() {
-  const [viewMode, setViewMode] = useState<'input' | 'pdf'>('input');
   const [activeTab, setActiveTab] = useState<'memo' | 'submission'>('memo');
-  const [tableUIMode, setTableUIMode] = useState<'standard' | 'hierarchy'>('standard');
+  const [tableUIMode, setTableUIMode] = useState<'standard' | 'hierarchy' | 'dense'>('standard');
 
   // メモ用の行データ
   const [memoRows, setMemoRows] = useState<ScheduleRow[]>([createEmptyRow()]);
   // 申請用の行データ
   const [submissionRows, setSubmissionRows] = useState<ScheduleRow[]>([createEmptyRow()]);
 
-  // 階層UI用の行データ
-  const [memoHierarchyRows, setMemoHierarchyRows] = useState<HierarchyRow[]>([
-    { hierarchyType: '組織構造', hierarchyData: '組織_2025年度', hierarchy: 'すべて' },
-    { hierarchyType: '科目構造 (2)', hierarchyData: '組織_2025年度', hierarchy: 'すべて' },
-    { hierarchyType: '組織構造', hierarchyData: '組織_2025年度', hierarchy: 'すべて' },
-  ]);
-  const [submissionHierarchyRows, setSubmissionHierarchyRows] = useState<HierarchyRow[]>([
-    { hierarchyType: '組織構造', hierarchyData: '組織_2025年度', hierarchy: 'すべて' },
-    { hierarchyType: '科目構造 (2)', hierarchyData: '組織_2025年度', hierarchy: 'すべて' },
-    { hierarchyType: '組織構造', hierarchyData: '組織_2025年度', hierarchy: 'すべて' },
-  ]);
-
   // 現在のタブに応じた行データ
   const rows = activeTab === 'memo' ? memoRows : submissionRows;
   const setRows = activeTab === 'memo' ? setMemoRows : setSubmissionRows;
-
-  // 階層UI用の行データ
-  const hierarchyRows = activeTab === 'memo' ? memoHierarchyRows : submissionHierarchyRows;
-  const setHierarchyRows = activeTab === 'memo' ? setMemoHierarchyRows : setSubmissionHierarchyRows;
 
   // 行追加
   const addRow = () => {
@@ -76,29 +46,12 @@ export default function OrderSchedulePage() {
     setRows(rows.map((row, i) => i === idx ? { ...row, [field]: value } : row));
   };
 
-  // 階層UI用の行追加
-  const addHierarchyRow = () => {
-    setHierarchyRows([...hierarchyRows, createEmptyHierarchyRow()]);
-  };
-
-  // 階層UI用の行削除
-  const removeHierarchyRow = (idx: number) => {
-    if (hierarchyRows.length > 1) {
-      setHierarchyRows(hierarchyRows.filter((_, i) => i !== idx));
-    }
-  };
-
-  // 階層UI用の行更新
-  const updateHierarchyRow = (idx: number, field: keyof HierarchyRow, value: string) => {
-    setHierarchyRows(hierarchyRows.map((row, i) => i === idx ? { ...row, [field]: value } : row));
-  };
-
   const inputStyle = {
     width: '100%',
-    padding: '0.4rem',
-    fontSize: '0.85rem',
+    padding: '0.3rem 0.4rem',
+    fontSize: '0.8rem',
     border: '1px solid #dde5f4',
-    borderRadius: '0.25rem',
+    borderRadius: '0.35rem',
     boxSizing: 'border-box' as const,
   };
 
@@ -114,32 +67,38 @@ export default function OrderSchedulePage() {
     dangerBorder: '#f1b1b1',
   };
 
-  const hierarchyFieldStyle = {
+  const compactFieldStyle = {
     width: '100%',
-    height: '44px',
-    padding: '0 14px',
-    fontSize: '0.9rem',
+    height: '34px',
+    padding: '0 10px',
+    fontSize: '0.82rem',
     border: `1px solid ${hierarchyPalette.border}`,
-    borderRadius: '10px',
+    borderRadius: '8px',
     boxSizing: 'border-box' as const,
     backgroundColor: hierarchyPalette.surface,
     color: hierarchyPalette.text,
     outline: 'none',
   };
 
-  const hierarchySelectWrapperStyle = {
-    position: 'relative' as const,
+  const denseCellInputStyle = {
     width: '100%',
+    height: '22px',
+    padding: '0 2px',
+    fontSize: '0.78rem',
+    border: 'none',
+    backgroundColor: 'transparent',
+    outline: 'none',
+    boxSizing: 'border-box' as const,
   };
 
-  const hierarchyChevronStyle = {
-    position: 'absolute' as const,
-    right: '14px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    color: hierarchyPalette.icon,
-    pointerEvents: 'none' as const,
-    fontSize: '0.85rem',
+  const densePalette = {
+    border: '#d1d5db',
+    headerBg: '#f3f4f6',
+    headerText: '#374151',
+    rowA: '#ffffff',
+    rowB: '#f9fafb',
+    cellText: '#111827',
+    icon: '#6b7280',
   };
 
   return (
@@ -195,28 +154,29 @@ export default function OrderSchedulePage() {
                   <p style={{ fontSize: '1rem', fontWeight: 600, color: '#1a1c20', margin: 0 }}>
                     発注予定表（{activeTab === 'memo' ? 'メモ用' : '申請用'}）
                   </p>
-                  {viewMode === 'input' && (
-                    <button
-                      onClick={() => setTableUIMode(tableUIMode === 'standard' ? 'hierarchy' : 'standard')}
-                      style={{
-                        padding: '0.25rem 0.5rem',
-                        fontSize: '0.7rem',
-                        fontWeight: 400,
-                        backgroundColor: 'transparent',
-                        color: '#686e78',
-                        border: 'none',
-                        borderRadius: '0.25rem',
-                        cursor: 'pointer',
-                        opacity: 0.6,
-                        textDecoration: 'underline',
-                      }}
-                      title="UI切り替え"
-                    >
-                      {tableUIMode === 'standard' ? '階層UI' : '標準UI'}
-                    </button>
-                  )}
                   <button
-                    onClick={() => setViewMode(viewMode === 'input' ? 'pdf' : 'input')}
+                    onClick={() =>
+                      setTableUIMode((prev) =>
+                        prev === 'standard' ? 'hierarchy' : prev === 'hierarchy' ? 'dense' : 'standard'
+                      )
+                    }
+                    style={{
+                      padding: '0.25rem 0.5rem',
+                      fontSize: '0.7rem',
+                      fontWeight: 400,
+                      backgroundColor: 'transparent',
+                      color: '#686e78',
+                      border: 'none',
+                      borderRadius: '0.25rem',
+                      cursor: 'pointer',
+                      opacity: 0.6,
+                      textDecoration: 'underline',
+                    }}
+                    title="UI切り替え"
+                  >
+                    UI: {tableUIMode === 'standard' ? '標準' : tableUIMode === 'hierarchy' ? 'スリム' : '表'}
+                  </button>
+                  <button
                     style={{
                       padding: '0.375rem 0.75rem',
                       fontSize: '0.8rem',
@@ -226,164 +186,145 @@ export default function OrderSchedulePage() {
                       border: '1px solid #0d56c9',
                       borderRadius: '0.375rem',
                       cursor: 'pointer',
+                      display: 'none',
                     }}
                   >
-                    {viewMode === 'input' ? 'PDFプレビュー' : '一覧に戻る'}
+                    PDFプレビュー
                   </button>
                 </div>
               </div>
 
               {/* テーブル */}
-              {viewMode === 'input' && (
-                <>
-                  {tableUIMode === 'standard' ? (
-                    <>
-                      <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                          <thead>
-                            <tr>
-                              <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', width: '100px', color: '#1a1c20' }}>工種コード</th>
-                              <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', color: '#1a1c20' }}>工種</th>
-                              <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', color: '#1a1c20' }}>発注予定業者</th>
-                              <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', width: '150px', color: '#1a1c20' }}>発注予定金額</th>
-                              <th style={{ padding: '0.75rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'center', border: '1px solid #dde5f4', width: '60px', color: '#1a1c20' }}>削除</th>
+              <>
+                {tableUIMode === 'standard' ? (
+                  <>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', width: '110px', color: '#1a1c20' }}>工種コード</th>
+                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', color: '#1a1c20' }}>工種</th>
+                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', color: '#1a1c20' }}>発注予定業者</th>
+                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', width: '160px', color: '#1a1c20' }}>発注予定金額</th>
+                            <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'center', border: '1px solid #dde5f4', width: '56px', color: '#1a1c20' }}>削除</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, idx) => (
+                            <tr key={idx}>
+                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                                <input
+                                  type="text"
+                                  value={row.workTypeCode}
+                                  onChange={(e) => updateRow(idx, 'workTypeCode', e.target.value)}
+                                  style={inputStyle}
+                                />
+                              </td>
+                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                                <input
+                                  type="text"
+                                  value={row.workType}
+                                  onChange={(e) => updateRow(idx, 'workType', e.target.value)}
+                                  style={inputStyle}
+                                />
+                              </td>
+                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                                <input
+                                  type="text"
+                                  value={row.vendor}
+                                  onChange={(e) => updateRow(idx, 'vendor', e.target.value)}
+                                  style={inputStyle}
+                                />
+                              </td>
+                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                                <input
+                                  type="text"
+                                  value={row.amount}
+                                  onChange={(e) => updateRow(idx, 'amount', e.target.value)}
+                                  style={{ ...inputStyle, textAlign: 'right' }}
+                                />
+                              </td>
+                              <td style={{ padding: '0.25rem', border: '1px solid #dde5f4', textAlign: 'center' }}>
+                                <button
+                                  onClick={() => removeRow(idx)}
+                                  disabled={rows.length <= 1}
+                                  style={{
+                                    padding: '0.25rem 0.5rem',
+                                    fontSize: '0.75rem',
+                                    backgroundColor: rows.length <= 1 ? '#e5e7eb' : '#fee2e2',
+                                    color: rows.length <= 1 ? '#9ca3af' : '#dc2626',
+                                    border: 'none',
+                                    borderRadius: '0.25rem',
+                                    cursor: rows.length <= 1 ? 'not-allowed' : 'pointer',
+                                  }}
+                                >
+                                  ×
+                                </button>
+                              </td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {rows.map((row, idx) => (
-                              <tr key={idx}>
-                                <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
-                                  <input
-                                    type="text"
-                                    value={row.workTypeCode}
-                                    onChange={(e) => updateRow(idx, 'workTypeCode', e.target.value)}
-                                    style={inputStyle}
-                                  />
-                                </td>
-                                <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
-                                  <input
-                                    type="text"
-                                    value={row.workType}
-                                    onChange={(e) => updateRow(idx, 'workType', e.target.value)}
-                                    style={inputStyle}
-                                  />
-                                </td>
-                                <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
-                                  <input
-                                    type="text"
-                                    value={row.vendor}
-                                    onChange={(e) => updateRow(idx, 'vendor', e.target.value)}
-                                    style={inputStyle}
-                                  />
-                                </td>
-                                <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
-                                  <input
-                                    type="text"
-                                    value={row.amount}
-                                    onChange={(e) => updateRow(idx, 'amount', e.target.value)}
-                                    style={{ ...inputStyle, textAlign: 'right' }}
-                                  />
-                                </td>
-                                <td style={{ padding: '0.25rem', border: '1px solid #dde5f4', textAlign: 'center' }}>
-                                  <button
-                                    onClick={() => removeRow(idx)}
-                                    disabled={rows.length <= 1}
-                                    style={{
-                                      padding: '0.25rem 0.5rem',
-                                      fontSize: '0.75rem',
-                                      backgroundColor: rows.length <= 1 ? '#e5e7eb' : '#fee2e2',
-                                      color: rows.length <= 1 ? '#9ca3af' : '#dc2626',
-                                      border: 'none',
-                                      borderRadius: '0.25rem',
-                                      cursor: rows.length <= 1 ? 'not-allowed' : 'pointer',
-                                    }}
-                                  >
-                                    ×
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <button
-                        onClick={addRow}
-                        style={{
-                          marginTop: '1rem',
-                          padding: '0.5rem 1rem',
-                          fontSize: '0.85rem',
-                          backgroundColor: '#fff',
-                          color: '#0d56c9',
-                          border: '1px solid #0d56c9',
-                          borderRadius: '0.375rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        + 行を追加
-                      </button>
-                    </>
-                  ) : (
-                    <>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <button
+                      onClick={addRow}
+                      style={{
+                        marginTop: '0.75rem',
+                        padding: '0.45rem 0.9rem',
+                        fontSize: '0.82rem',
+                        backgroundColor: '#fff',
+                        color: '#0d56c9',
+                        border: '1px solid #0d56c9',
+                        borderRadius: '0.375rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      + 行を追加
+                    </button>
+                  </>
+                ) : tableUIMode === 'hierarchy' ? (
+                  <>
                       {/* 階層UIパターン */}
                       <div
                         style={{
                           backgroundColor: hierarchyPalette.panel,
                           border: `1px solid ${hierarchyPalette.border}`,
                           borderRadius: '14px',
-                          padding: '14px',
+                        padding: '10px',
                         }}
                       >
                         {/* header */}
                         <div
                           style={{
                             display: 'grid',
-                            gridTemplateColumns: '34px 260px 260px 1fr 76px',
+                          gridTemplateColumns: '28px 120px 1fr 1fr 160px 44px',
                             alignItems: 'center',
-                            gap: '14px',
-                            padding: '4px 8px 10px 8px',
+                          gap: '10px',
+                          padding: '2px 6px 6px 6px',
                             color: hierarchyPalette.textSubtle,
-                            fontSize: '0.78rem',
+                          fontSize: '0.72rem',
                             fontWeight: 600,
                           }}
                         >
                           <div />
-                          <div>階層種別</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <span>階層データ</span>
-                            <span
-                              title="階層データについて"
-                              style={{
-                                width: '16px',
-                                height: '16px',
-                                borderRadius: '999px',
-                                backgroundColor: '#fff3cf',
-                                border: '1px solid #f2c15d',
-                                color: '#a87410',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '11px',
-                                lineHeight: 1,
-                              }}
-                            >
-                              i
-                            </span>
-                          </div>
-                          <div>階層</div>
-                          <div />
+                        <div>工種コード</div>
+                        <div>工種</div>
+                        <div>発注予定業者</div>
+                        <div style={{ textAlign: 'right' }}>発注予定金額</div>
+                        <div style={{ textAlign: 'center' }} />
                         </div>
 
                         {/* rows */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                          {hierarchyRows.map((row, idx) => (
+                        {rows.map((row, idx) => (
                             <div
                               key={idx}
                               style={{
                                 display: 'grid',
-                                gridTemplateColumns: '34px 260px 260px 1fr 76px',
+                              gridTemplateColumns: '28px 120px 1fr 1fr 160px 44px',
                                 alignItems: 'center',
-                                gap: '14px',
-                                padding: '12px',
+                              gap: '10px',
+                              padding: '8px',
                                 border: `1px solid ${hierarchyPalette.borderSoft}`,
                                 borderRadius: '12px',
                                 backgroundColor: hierarchyPalette.surface,
@@ -398,88 +339,56 @@ export default function OrderSchedulePage() {
                                 </div>
                               </div>
 
-                              {/* 階層種別 */}
+                            {/* 工種コード */}
                               <input
                                 type="text"
-                                value={row.hierarchyType}
-                                onChange={(e) => updateHierarchyRow(idx, 'hierarchyType', e.target.value)}
-                                style={hierarchyFieldStyle}
-                                placeholder="例）組織構造"
+                              value={row.workTypeCode}
+                              onChange={(e) => updateRow(idx, 'workTypeCode', e.target.value)}
+                              style={compactFieldStyle}
+                              placeholder="例）A01"
                               />
 
-                              {/* 階層データ（select風） */}
-                              <div style={hierarchySelectWrapperStyle}>
-                                <select
-                                  value={row.hierarchyData}
-                                  onChange={(e) => updateHierarchyRow(idx, 'hierarchyData', e.target.value)}
-                                  style={{
-                                    ...hierarchyFieldStyle,
-                                    appearance: 'none' as const,
-                                    paddingRight: '2rem',
-                                  }}
-                                >
-                                  <option value="">選択してください</option>
-                                  <option value="組織_2025年度">組織_2025年度</option>
-                                  <option value="科目_2025年度">科目_2025年度</option>
-                                </select>
-                                <span style={hierarchyChevronStyle}>▼</span>
-                              </div>
+                            {/* 工種 */}
+                            <input
+                              type="text"
+                              value={row.workType}
+                              onChange={(e) => updateRow(idx, 'workType', e.target.value)}
+                              style={compactFieldStyle}
+                              placeholder="例）空調"
+                            />
 
-                              {/* 階層（select風 + 編集） */}
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div style={{ ...hierarchySelectWrapperStyle, flex: 1 }}>
-                                  <select
-                                    value={row.hierarchy}
-                                    onChange={(e) => updateHierarchyRow(idx, 'hierarchy', e.target.value)}
-                                    style={{
-                                      ...hierarchyFieldStyle,
-                                      appearance: 'none' as const,
-                                      paddingRight: '2rem',
-                                    }}
-                                  >
-                                    <option value="">選択してください</option>
-                                    <option value="すべて">すべて</option>
-                                    <option value="第一階層">第一階層</option>
-                                    <option value="第二階層">第二階層</option>
-                                  </select>
-                                  <span style={hierarchyChevronStyle}>▼</span>
-                                </div>
+                            {/* 発注予定業者 */}
+                            <input
+                              type="text"
+                              value={row.vendor}
+                              onChange={(e) => updateRow(idx, 'vendor', e.target.value)}
+                              style={compactFieldStyle}
+                              placeholder="例）〇〇設備"
+                            />
 
-                                <button
-                                  type="button"
-                                  title="編集"
-                                  style={{
-                                    width: '34px',
-                                    height: '34px',
-                                    borderRadius: '10px',
-                                    border: `1px solid ${hierarchyPalette.dangerBorder}`,
-                                    backgroundColor: hierarchyPalette.surface,
-                                    color: hierarchyPalette.danger,
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '0.85rem',
-                                  }}
-                                >
-                                  ✎
-                                </button>
-                              </div>
+                            {/* 発注予定金額 */}
+                            <input
+                              type="text"
+                              value={row.amount}
+                              onChange={(e) => updateRow(idx, 'amount', e.target.value)}
+                              style={{ ...compactFieldStyle, textAlign: 'right' }}
+                              placeholder="0"
+                            />
 
                               {/* delete */}
-                              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <div style={{ display: 'flex', justifyContent: 'center' }}>
                                 <button
-                                  onClick={() => removeHierarchyRow(idx)}
-                                  disabled={hierarchyRows.length <= 1}
+                                onClick={() => removeRow(idx)}
+                                disabled={rows.length <= 1}
                                   title="削除"
                                   style={{
-                                    width: '34px',
-                                    height: '34px',
+                                  width: '32px',
+                                  height: '32px',
                                     borderRadius: '999px',
                                     border: 'none',
-                                    backgroundColor: hierarchyRows.length <= 1 ? '#e5e7eb' : '#f3f4f6',
-                                    color: hierarchyRows.length <= 1 ? '#9ca3af' : hierarchyPalette.textSubtle,
-                                    cursor: hierarchyRows.length <= 1 ? 'not-allowed' : 'pointer',
+                                  backgroundColor: rows.length <= 1 ? '#e5e7eb' : '#f3f4f6',
+                                  color: rows.length <= 1 ? '#9ca3af' : hierarchyPalette.textSubtle,
+                                  cursor: rows.length <= 1 ? 'not-allowed' : 'pointer',
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -494,37 +403,191 @@ export default function OrderSchedulePage() {
                           ))}
                         </div>
 
-                        <div style={{ textAlign: 'center', paddingTop: '14px' }}>
+                      <div style={{ textAlign: 'center', paddingTop: '10px' }}>
                           <button
-                            onClick={addHierarchyRow}
+                          onClick={addRow}
                             style={{
                               border: 'none',
                               background: 'transparent',
                               color: hierarchyPalette.textSubtle,
-                              fontSize: '0.95rem',
+                            fontSize: '0.9rem',
                               cursor: 'pointer',
-                              padding: '8px 12px',
+                            padding: '6px 10px',
                             }}
                           >
                             + 追加
                           </button>
                         </div>
                       </div>
-                    </>
-                  )}
-                </>
-              )}
-
-              {/* PDFプレビュー */}
-              {viewMode === 'pdf' && (
-                <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '600px' }}>
-                  <iframe
-                    src="/発注予定（サンプルデータ）.pdf"
-                    style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
-                    title="発注予定表"
-                  />
-                </div>
-              )}
+                  </>
+                ) : (
+                  <>
+                    {/* がっつり表パターン（密なグリッド） */}
+                    <div
+                      style={{
+                        overflowX: 'auto',
+                        border: `1px solid ${densePalette.border}`,
+                        borderRadius: 0,
+                        backgroundColor: '#fff',
+                      }}
+                    >
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                        <thead>
+                          <tr>
+                            <th
+                              style={{
+                                padding: '6px 8px',
+                                textAlign: 'left',
+                                border: `1px solid ${densePalette.border}`,
+                                backgroundColor: densePalette.headerBg,
+                                color: densePalette.headerText,
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                                width: '110px',
+                              }}
+                            >
+                              工種コード
+                            </th>
+                            <th
+                              style={{
+                                padding: '6px 8px',
+                                textAlign: 'left',
+                                border: `1px solid ${densePalette.border}`,
+                                backgroundColor: densePalette.headerBg,
+                                color: densePalette.headerText,
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              工種
+                            </th>
+                            <th
+                              style={{
+                                padding: '6px 8px',
+                                textAlign: 'left',
+                                border: `1px solid ${densePalette.border}`,
+                                backgroundColor: densePalette.headerBg,
+                                color: densePalette.headerText,
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              発注予定業者
+                            </th>
+                            <th
+                              style={{
+                                padding: '6px 8px',
+                                textAlign: 'right',
+                                border: `1px solid ${densePalette.border}`,
+                                backgroundColor: densePalette.headerBg,
+                                color: densePalette.headerText,
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                                width: '160px',
+                              }}
+                            >
+                              発注予定金額
+                            </th>
+                            <th
+                              style={{
+                                padding: '6px 8px',
+                                textAlign: 'center',
+                                border: `1px solid ${densePalette.border}`,
+                                backgroundColor: densePalette.headerBg,
+                                color: densePalette.headerText,
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                                width: '56px',
+                              }}
+                            >
+                              削除
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, idx) => (
+                            <tr
+                              key={idx}
+                              style={{
+                                backgroundColor: idx % 2 === 0 ? densePalette.rowA : densePalette.rowB,
+                                color: densePalette.cellText,
+                              }}
+                            >
+                              <td style={{ padding: '4px 6px', border: `1px solid ${densePalette.border}` }}>
+                                <input
+                                  type="text"
+                                  value={row.workTypeCode}
+                                  onChange={(e) => updateRow(idx, 'workTypeCode', e.target.value)}
+                                  style={denseCellInputStyle}
+                                />
+                              </td>
+                              <td style={{ padding: '4px 6px', border: `1px solid ${densePalette.border}` }}>
+                                <input
+                                  type="text"
+                                  value={row.workType}
+                                  onChange={(e) => updateRow(idx, 'workType', e.target.value)}
+                                  style={denseCellInputStyle}
+                                />
+                              </td>
+                              <td style={{ padding: '4px 6px', border: `1px solid ${densePalette.border}` }}>
+                                <input
+                                  type="text"
+                                  value={row.vendor}
+                                  onChange={(e) => updateRow(idx, 'vendor', e.target.value)}
+                                  style={denseCellInputStyle}
+                                />
+                              </td>
+                              <td style={{ padding: '4px 6px', border: `1px solid ${densePalette.border}`, textAlign: 'right' }}>
+                                <input
+                                  type="text"
+                                  value={row.amount}
+                                  onChange={(e) => updateRow(idx, 'amount', e.target.value)}
+                                  style={{ ...denseCellInputStyle, textAlign: 'right' }}
+                                />
+                              </td>
+                              <td style={{ padding: '2px 6px', border: `1px solid ${densePalette.border}`, textAlign: 'center' }}>
+                                <button
+                                  onClick={() => removeRow(idx)}
+                                  disabled={rows.length <= 1}
+                                  style={{
+                                    width: '26px',
+                                    height: '22px',
+                                    fontSize: '0.95rem',
+                                    backgroundColor: 'transparent',
+                                    color: rows.length <= 1 ? '#9ca3af' : densePalette.icon,
+                                    border: 'none',
+                                    borderRadius: 0,
+                                    cursor: rows.length <= 1 ? 'not-allowed' : 'pointer',
+                                    lineHeight: 1,
+                                  }}
+                                  title="削除"
+                                >
+                                  ×
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <button
+                      onClick={addRow}
+                      style={{
+                        marginTop: '0.75rem',
+                        padding: '0.45rem 0.9rem',
+                        fontSize: '0.82rem',
+                        backgroundColor: '#fff',
+                        color: '#0d56c9',
+                        border: '1px solid #0d56c9',
+                        borderRadius: '0.375rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      + 行を追加
+                    </button>
+                  </>
+                )}
+              </>
             </div>
           </div>
         </main>
