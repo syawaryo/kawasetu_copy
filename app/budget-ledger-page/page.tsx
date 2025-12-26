@@ -184,6 +184,38 @@ export default function BudgetLedgerPage() {
       <header style={{ backgroundColor: '#132942', color: '#fff', padding: '0.75rem 0', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>工事実行予算台帳</h1>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={() => alert('保存しました')}
+              style={{
+                padding: '0.5rem 1.25rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                backgroundColor: '#fff',
+                color: '#132942',
+                border: 'none',
+                borderRadius: '0.375rem',
+                cursor: 'pointer',
+              }}
+            >
+              保存
+            </button>
+            <button
+              onClick={() => alert('申請機能は準備中です')}
+              style={{
+                padding: '0.5rem 1.25rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                backgroundColor: '#10b981',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '0.375rem',
+                cursor: 'pointer',
+              }}
+            >
+              申請
+            </button>
+          </div>
         </div>
       </header>
 
