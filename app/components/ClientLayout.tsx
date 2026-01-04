@@ -79,9 +79,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </div>
         </div>
       </header>
-      <TabNavigation />
-      <Breadcrumb />
-      <main style={{ flex: 1, maxWidth: '1160px', margin: '0 auto', padding: '2rem 24px', width: '100%' }}>
+      {pathname !== '/' && <TabNavigation />}
+      {pathname !== '/' && <Breadcrumb />}
+      <main style={{ flex: 1, maxWidth: pathname === '/' ? '100%' : '1160px', margin: '0 auto', padding: pathname === '/' ? '0' : '2rem 24px', width: '100%' }}>
         {children}
       </main>
     </div>
