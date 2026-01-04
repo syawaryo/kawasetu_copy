@@ -116,7 +116,7 @@ export function AccountSuggestInput({
             position: "absolute",
             top: "100%",
             left: 0,
-            right: 0,
+            minWidth: "170px",
             zIndex: 1000,
             backgroundColor: "#fff",
             border: "1px solid #dde5f4",

@@ -620,50 +620,52 @@ export default function PaymentSlipPage() {
             <h2 style={cardTitleStyle}>支払明細</h2>
           </div>
           <div style={{ padding: '1rem' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', minWidth: '1400px', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+            <div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', tableLayout: 'fixed', overflow: 'visible' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#132942', color: '#fff' }}>
-                    <th rowSpan={2} style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'center', border: '1px solid #1e3a5f', width: 50 }}>No.</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 140 }}>科目</th>
-                    <th rowSpan={2} style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'center', border: '1px solid #1e3a5f', width: 40 }}>免</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 150 }}>取引先</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 120 }}>JV負担区分</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 100 }}>費目</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 100 }}>消税区分</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f', minWidth: 120 }}>査定金額</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f', minWidth: 100 }}>立替税率</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 150 }}>事業者登録番号</th>
-                    <th rowSpan={2} style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'center', border: '1px solid #1e3a5f', width: 50 }}></th>
+                    <th rowSpan={2} style={{ padding: '0.5rem 0.25rem', fontWeight: 600, textAlign: 'center', border: '1px solid #1e3a5f', width: '3%' }}>No.</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', width: '10%' }}>科目</th>
+                    <th rowSpan={2} style={{ padding: '0.5rem 0.25rem', fontWeight: 600, textAlign: 'center', border: '1px solid #1e3a5f', width: '3%' }}>免</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', width: '12%' }}>取引先</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', width: '10%' }}>JV負担区分</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', width: '8%' }}>費目</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', width: '7%' }}>消税区分</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f', width: '10%' }}>査定金額</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f', width: '7%' }}>立替税率</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', width: '14%' }}>登録番号 / JV負担先</th>
+                    <th rowSpan={2} style={{ padding: '0.5rem 0.25rem', fontWeight: 600, textAlign: 'center', border: '1px solid #1e3a5f', width: '4%' }}></th>
                   </tr>
                   <tr style={{ backgroundColor: '#1e3a5f', color: '#fff' }}>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 140 }}>部門</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 150 }}>工事</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 120 }}>引合物件</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 100 }}>工種</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 100 }}>課税区分</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f', minWidth: 120 }}>消費税額</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f', minWidth: 100 }}>立替消費税</th>
-                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f', minWidth: 150 }}>JV負担先 / 摘要</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f' }}>部門</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f' }}>工事</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f' }}>引合物件</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f' }}>工種</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f' }}>課税区分</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f' }}>消費税額</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'right', border: '1px solid #1e3a5f' }}>立替消費税</th>
+                    <th style={{ padding: '0.5rem 0.35rem', fontWeight: 600, textAlign: 'left', border: '1px solid #1e3a5f' }}>摘要</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((r, idx) => {
                     const bgColor = idx % 2 === 0 ? '#fff' : '#f8f9fa';
+                    const cellInputStyle = { ...inputStyle, padding: '0.4rem', fontSize: '0.8rem' };
+                    const cellSelectStyle = { ...selectStyle, padding: '0.4rem', fontSize: '0.8rem' };
                     return (
                       <React.Fragment key={r.no}>
                         {/* 1行目 */}
                         <tr style={{ backgroundColor: bgColor }}>
-                          <td rowSpan={2} style={{ padding: '0.25rem', border: '1px solid #e5e7eb', textAlign: 'center', fontFamily: 'monospace', color: '#686e78', verticalAlign: 'middle' }}>
+                          <td rowSpan={2} style={{ padding: '0.25rem', border: '1px solid #e5e7eb', textAlign: 'center', fontFamily: 'monospace', color: '#686e78', verticalAlign: 'middle', fontSize: '0.8rem' }}>
                             {idx + 1}
                           </td>
-                          <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb', borderLeft: '1px solid #e5e7eb' }}>
+                          <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb', borderLeft: '1px solid #e5e7eb', overflow: 'visible' }}>
                             <AccountSuggestInput
                               value={r.accountTitle}
                               summary={r.summary}
                               onChange={(val) => updateRow(idx, "accountTitle", val)}
                               placeholder="科目"
-                              style={{ ...inputStyle, padding: '0.375rem' }}
+                              style={cellInputStyle}
                             />
                           </td>
                           <td rowSpan={2} style={{ padding: '0.25rem', border: '1px solid #e5e7eb', textAlign: 'center', verticalAlign: 'middle' }}>
@@ -680,7 +682,7 @@ export default function PaymentSlipPage() {
                               value={r.partner}
                               onChange={(e) => updateRow(idx, "partner", e.target.value)}
                               placeholder="取引先"
-                              style={{ ...inputStyle, padding: '0.375rem' }}
+                              style={cellInputStyle}
                             />
                           </td>
                           <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
@@ -689,7 +691,7 @@ export default function PaymentSlipPage() {
                               value={r.jvShareType}
                               onChange={(e) => updateRow(idx, "jvShareType", e.target.value)}
                               placeholder="JV負担区分"
-                              style={{ ...inputStyle, padding: '0.375rem' }}
+                              style={cellInputStyle}
                             />
                           </td>
                           <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
@@ -698,14 +700,14 @@ export default function PaymentSlipPage() {
                               value={r.expense}
                               onChange={(e) => updateRow(idx, "expense", e.target.value)}
                               placeholder="費目"
-                              style={{ ...inputStyle, padding: '0.375rem' }}
+                              style={cellInputStyle}
                             />
                           </td>
                           <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
                             <select
                               value={r.taxType}
                               onChange={(e) => updateRow(idx, "taxType", e.target.value)}
-                              style={{ ...selectStyle, padding: '0.375rem' }}
+                              style={cellSelectStyle}
                             >
                               <option value="">-</option>
                               <option value="内税">内税</option>
@@ -718,7 +720,7 @@ export default function PaymentSlipPage() {
                               value={r.assessedAmount}
                               onChange={(e) => updateRow(idx, "assessedAmount", e.target.value)}
                               placeholder="0"
-                              style={{ ...inputStyle, padding: '0.375rem', textAlign: 'right', fontFamily: 'monospace' }}
+                              style={{ ...cellInputStyle, textAlign: 'right', fontFamily: 'monospace' }}
                             />
                           </td>
                           <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
@@ -727,17 +729,26 @@ export default function PaymentSlipPage() {
                               value={r.advanceTaxRate}
                               onChange={(e) => updateRow(idx, "advanceTaxRate", e.target.value)}
                               placeholder="%"
-                              style={{ ...inputStyle, padding: '0.375rem', textAlign: 'right', fontFamily: 'monospace' }}
+                              style={{ ...cellInputStyle, textAlign: 'right', fontFamily: 'monospace' }}
                             />
                           </td>
                           <td style={{ padding: '0.25rem', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
-                            <input
-                              type="text"
-                              value={r.businessRegNo}
-                              onChange={(e) => updateRow(idx, "businessRegNo", e.target.value)}
-                              placeholder="T0000000000000"
-                              style={{ ...inputStyle, padding: '0.375rem', fontFamily: 'monospace' }}
-                            />
+                            <div style={{ display: 'flex', gap: '0.25rem' }}>
+                              <input
+                                type="text"
+                                value={r.businessRegNo}
+                                onChange={(e) => updateRow(idx, "businessRegNo", e.target.value)}
+                                placeholder="T0000000000000"
+                                style={{ ...cellInputStyle, flex: 1, fontSize: '0.75rem', fontFamily: 'monospace' }}
+                              />
+                              <input
+                                type="text"
+                                value={r.jvPayTo}
+                                onChange={(e) => updateRow(idx, "jvPayTo", e.target.value)}
+                                placeholder="JV負担先"
+                                style={{ ...cellInputStyle, flex: 1 }}
+                              />
+                            </div>
                           </td>
                           <td rowSpan={2} style={{ padding: '0.25rem', border: '1px solid #e5e7eb', textAlign: 'center', verticalAlign: 'middle' }}>
                             <button
@@ -770,7 +781,7 @@ export default function PaymentSlipPage() {
                               value={r.department}
                               onChange={(e) => updateRow(idx, "department", e.target.value)}
                               placeholder="部門"
-                              style={{ ...inputStyle, padding: '0.375rem' }}
+                              style={cellInputStyle}
                             />
                           </td>
                           <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
@@ -779,7 +790,7 @@ export default function PaymentSlipPage() {
                               value={r.project}
                               onChange={(e) => updateRow(idx, "project", e.target.value)}
                               placeholder="工事"
-                              style={{ ...inputStyle, padding: '0.375rem' }}
+                              style={cellInputStyle}
                             />
                           </td>
                           <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
@@ -788,7 +799,7 @@ export default function PaymentSlipPage() {
                               value={r.inquiry}
                               onChange={(e) => updateRow(idx, "inquiry", e.target.value)}
                               placeholder="引合物件"
-                              style={{ ...inputStyle, padding: '0.375rem' }}
+                              style={cellInputStyle}
                             />
                           </td>
                           <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
@@ -797,18 +808,18 @@ export default function PaymentSlipPage() {
                               value={r.workType}
                               onChange={(e) => updateRow(idx, "workType", e.target.value)}
                               placeholder="工種"
-                              style={{ ...inputStyle, padding: '0.375rem' }}
+                              style={cellInputStyle}
                             />
                           </td>
                           <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
                             <select
                               value={r.taxKbn}
                               onChange={(e) => updateRow(idx, "taxKbn", e.target.value)}
-                              style={{ ...selectStyle, padding: '0.375rem' }}
+                              style={cellSelectStyle}
                             >
                               <option value="">-</option>
-                              <option value="標準(10%)">標準(10%)</option>
-                              <option value="軽減(8%)">軽減(8%)</option>
+                              <option value="標準(10%)">10%</option>
+                              <option value="軽減(8%)">8%</option>
                               <option value="対象外">対象外</option>
                             </select>
                           </td>
@@ -818,7 +829,7 @@ export default function PaymentSlipPage() {
                               value={r.taxAmount}
                               onChange={(e) => updateRow(idx, "taxAmount", e.target.value)}
                               placeholder="0"
-                              style={{ ...inputStyle, padding: '0.375rem', textAlign: 'right', fontFamily: 'monospace' }}
+                              style={{ ...cellInputStyle, textAlign: 'right', fontFamily: 'monospace' }}
                             />
                           </td>
                           <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
@@ -827,26 +838,17 @@ export default function PaymentSlipPage() {
                               value={r.advanceTaxAmount}
                               onChange={(e) => updateRow(idx, "advanceTaxAmount", e.target.value)}
                               placeholder="0"
-                              style={{ ...inputStyle, padding: '0.375rem', textAlign: 'right', fontFamily: 'monospace' }}
+                              style={{ ...cellInputStyle, textAlign: 'right', fontFamily: 'monospace' }}
                             />
                           </td>
                           <td style={{ padding: '0.25rem', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                              <input
-                                type="text"
-                                value={r.jvPayTo}
-                                onChange={(e) => updateRow(idx, "jvPayTo", e.target.value)}
-                                placeholder="JV負担先"
-                                style={{ ...inputStyle, padding: '0.375rem' }}
-                              />
-                              <input
-                                type="text"
-                                value={r.summary}
-                                onChange={(e) => updateRow(idx, "summary", e.target.value)}
-                                placeholder="摘要"
-                                style={{ ...inputStyle, padding: '0.375rem' }}
-                              />
-                            </div>
+                            <input
+                              type="text"
+                              value={r.summary}
+                              onChange={(e) => updateRow(idx, "summary", e.target.value)}
+                              placeholder="摘要"
+                              style={cellInputStyle}
+                            />
                           </td>
                         </tr>
                       </React.Fragment>

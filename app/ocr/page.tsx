@@ -525,9 +525,9 @@ export default function OcrPage() {
                     </colgroup>
                     <thead>
                       <tr style={{ backgroundColor: '#f9fafb' }}>
-                        <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}></th>
-                        <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>フィールド</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>値（編集可）</th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '2px solid #e5e7eb', color: '#1a1c20' }}></th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '2px solid #e5e7eb', color: '#1a1c20' }}>フィールド</th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '2px solid #e5e7eb', color: '#1a1c20' }}>値（編集可）</th>
                       </tr>
                     </thead>
                     <tbody>
