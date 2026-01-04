@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 const menuData = [
   {
@@ -26,7 +27,32 @@ const menuData = [
     ]
   },
   { id: 'billing', name: '請求/入金', subMenus: [] },
-  { id: 'material', name: '材料/外注管理', subMenus: [] },
+  {
+    id: 'material',
+    name: '材料/外注管理',
+    subMenus: [
+      { id: 'order-mgmt', name: '発注管理', items: [
+        { name: '(材料)発注契約登録', description: '材料の発注契約登録' },
+        { name: '(外注)発注契約登録', description: '外注の発注契約登録' },
+        { name: '注文伺書', description: '注文伺書の作成' },
+        { name: '発注照会', description: '発注情報の照会' },
+        { name: '注文書No.一覧表', description: '注文書番号の一覧' },
+        { name: '承認状況照会', description: '承認状況の確認' }
+      ]},
+      { id: 'receiving', name: '入庫/出来高', items: [
+        { name: '出来高査定入力チェックリスト', description: '出来高査定の入力確認' },
+        { name: '入庫連動入力', description: '入庫連動の入力' }
+      ]},
+      { id: 'payment', name: '支払', items: [
+        { name: '引去確認リスト', description: '引去確認の一覧' },
+        { name: '支払通知書', description: '支払通知書の発行' },
+        { name: '工事別支払先別月別支払管理表', description: '支払管理表の確認' },
+        { name: '支払残高一覧表', description: '支払残高の一覧' },
+        { name: '支払先宛名シール', description: '宛名シールの発行' }
+      ]},
+      { id: 'reports', name: '各種帳票', items: [] }
+    ]
+  },
   {
     id: 'cost',
     name: '原価/財務管理',
@@ -125,6 +151,7 @@ const DropdownMenu = ({ menu, isOpen, onSelectSubMenu, onMouseEnter, onMouseLeav
 };
 
 export default function Home() {
+  const router = useRouter();
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
   const [selectedSubMenu, setSelectedSubMenu] = useState<{ menuId: string, subMenuId: string } | null>({ menuId: 'project', subMenuId: 'project-mgmt' });
 
@@ -144,7 +171,14 @@ export default function Home() {
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {menuData.map((menu) => (
             <div key={menu.id} style={{ position: 'relative' }} onMouseEnter={() => setHoveredMenu(menu.id)} onMouseLeave={() => setHoveredMenu(null)}>
-              <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 500, borderRadius: '0.625rem', cursor: 'pointer', transition: 'all 0.2s ease', whiteSpace: 'nowrap', border: 'none', background: selectedSubMenu?.menuId === menu.id ? '#0d56c9' : 'transparent', color: selectedSubMenu?.menuId === menu.id ? '#fff' : '#1a1c20' }}>
+              <button
+                onClick={() => {
+                  if (menu.subMenus.length === 0) {
+                    setSelectedSubMenu({ menuId: menu.id, subMenuId: '' });
+                    setHoveredMenu(null);
+                  }
+                }}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 500, borderRadius: '0.625rem', cursor: 'pointer', transition: 'all 0.2s ease', whiteSpace: 'nowrap', border: 'none', background: selectedSubMenu?.menuId === menu.id ? '#0d56c9' : 'transparent', color: selectedSubMenu?.menuId === menu.id ? '#fff' : '#1a1c20' }}>
                 {menu.name}
               </button>
               <DropdownMenu menu={menu} isOpen={hoveredMenu === menu.id} onSelectSubMenu={handleSelectSubMenu} onMouseEnter={() => setHoveredMenu(menu.id)} onMouseLeave={() => setHoveredMenu(null)} />
@@ -161,7 +195,13 @@ export default function Home() {
               <div
                 key={idx}
                 style={{ backgroundColor: '#fff', borderRadius: '0.5rem', boxShadow: '0px 2px 8px rgb(68 73 80 / 6%)', padding: '0.75rem 1rem', cursor: 'pointer', transition: 'all 0.2s ease', border: '1px solid transparent', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
-                onClick={() => alert(`${item.name}の詳細ページに遷移します`)}
+                onClick={() => {
+                  if (item.name === '(外注)発注契約登録') {
+                    router.push('/order-inquiry');
+                  } else {
+                    alert(`${item.name}の詳細ページに遷移します`);
+                  }
+                }}
                 onMouseOver={(e) => { e.currentTarget.style.borderColor = '#0d56c9'; e.currentTarget.style.backgroundColor = '#fafbfc'; }}
                 onMouseOut={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.backgroundColor = '#fff'; }}
               >

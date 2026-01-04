@@ -42,10 +42,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <header style={{ backgroundColor: '#1a365d', color: '#fff', padding: '0 24px', height: '56px', display: 'flex', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '32px', height: '32px', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>
-              KS
-            </div>
-            <span style={{ fontSize: '15px', fontWeight: 600, letterSpacing: '0.02em' }}>川崎設備工業</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

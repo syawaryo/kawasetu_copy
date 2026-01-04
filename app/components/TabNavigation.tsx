@@ -26,9 +26,6 @@ export default function TabNavigation() {
   return (
     <nav style={{ backgroundColor: '#fff', borderBottom: '1px solid #dde5f4' }}>
       <div style={{ maxWidth: '1160px', margin: '0 auto', padding: '0 24px', display: 'flex', gap: '0.5rem' }}>
-        <Link href="/" style={linkStyle(isActive('/'))}>
-          ポータル
-        </Link>
         <Link href="/function-master" style={linkStyle(isActive('/function-master'))}>
           機能マスタ
         </Link>
