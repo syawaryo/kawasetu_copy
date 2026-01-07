@@ -16,6 +16,7 @@ const menuData = [
       { id: 'order-mgmt', name: '受注管理', items: [
         { name: '受注工事登録', description: '新規受注工事の登録' },
         { name: '受注報告一覧表', description: '受注報告の一覧' },
+        { name: '請求管理表', description: '工事別請求状況の管理' },
         { name: '工事進捗予想一覧表', description: '工事進捗の予想確認' },
         { name: '工事進捗予想要入力一覧表', description: '入力が必要な工事一覧' }
       ]},
@@ -34,7 +35,9 @@ const menuData = [
       { id: 'order-mgmt', name: '発注管理', items: [
         { name: '(材料)発注契約登録', description: '材料の発注契約登録' },
         { name: '(外注)発注契約登録', description: '外注の発注契約登録' },
+        { name: '発注予定表', description: '工事別発注予定表の管理' },
         { name: '注文伺書', description: '注文伺書の作成' },
+        { name: '工事実行予算台帳', description: '工事実行予算台帳の確認' },
         { name: '発注照会', description: '発注情報の照会' },
         { name: '注文書No.一覧表', description: '注文書番号の一覧' },
         { name: '承認状況照会', description: '承認状況の確認' }
@@ -198,6 +201,12 @@ export default function Home() {
                 onClick={() => {
                   if (item.name === '(外注)発注契約登録') {
                     router.push('/order-inquiry');
+                  } else if (item.name === '工事実行予算台帳') {
+                    router.push('/budget-ledger');
+                  } else if (item.name === '発注予定表') {
+                    router.push('/order-schedule-page');
+                  } else if (item.name === '請求管理表') {
+                    router.push('/billing-management');
                   } else {
                     alert(`${item.name}の詳細ページに遷移します`);
                   }

@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { PDFDocument, TextAlignment } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { useOrderData, BudgetLedgerRow } from "../contexts/OrderDataContext";
@@ -18,477 +17,716 @@ function formatNum(n: number) {
   return n.toLocaleString();
 }
 
-// 表データの型
-type BudgetLedgerTable = {
-  materialExecBudget: string;
-  materialOrderAmount: string;
-  materialPlannedOrder: string;
-  materialBudgetRemain: string;
-  subcontractExecBudget: string;
-  subcontractOrderAmount: string;
-  subcontractPlannedOrder: string;
-  subcontractBudgetRemain: string;
-  expenseExecBudget: string;
-  expenseOrderAmount: string;
-  expensePlannedOrder: string;
-  expenseBudgetRemain: string;
-  totalExecBudget: string;
-  totalOrderAmount: string;
-  totalPlannedOrder: string;
-  totalBudgetRemain: string;
-};
-
-// ヘッダーデータの型
-type BudgetLedgerHeader = {
-  contractor: string;
-  inProgressAmount: string;
+// 詳細行の型
+type DetailRow = {
+  codeItem: string;
   budgetAmount: string;
+  approvalNo: string;
+  approvalDate: string;
+  orderVendor: string;
   orderAmount: string;
-  plannedOrder: string;
-  budgetRemain: string;
-  plannedProfit: string;
-  estimatedCost: string;
+  balance: string;
 };
 
-const defaultHeader: BudgetLedgerHeader = {
-  contractor: "",
-  inProgressAmount: "",
-  budgetAmount: "",
-  orderAmount: "",
-  plannedOrder: "",
-  budgetRemain: "",
-  plannedProfit: "",
-  estimatedCost: "",
-};
-
-const defaultTable: BudgetLedgerTable = {
-  materialExecBudget: "",
-  materialOrderAmount: "",
-  materialPlannedOrder: "",
-  materialBudgetRemain: "",
-  subcontractExecBudget: "",
-  subcontractOrderAmount: "",
-  subcontractPlannedOrder: "",
-  subcontractBudgetRemain: "",
-  expenseExecBudget: "",
-  expenseOrderAmount: "",
-  expensePlannedOrder: "",
-  expenseBudgetRemain: "",
-  totalExecBudget: "",
-  totalOrderAmount: "",
-  totalPlannedOrder: "",
-  totalBudgetRemain: "",
+// 進捗追跡の型
+type ProgressRow = {
+  progress: string;
+  progressAmount: string;
+  diffPercent: string;
+  diffAmount: string;
+  judgment: string;
 };
 
 export default function BudgetLedgerPage() {
   const router = useRouter();
   const { orders, ledgerRows, setLedgerRows } = useOrderData();
 
-  const [header, setHeader] = useState<BudgetLedgerHeader>(defaultHeader);
-  const [table, setTable] = useState<BudgetLedgerTable>(defaultTable);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  // ヘッダー情報
+  const [projectNumber, setProjectNumber] = useState("");
+  const [constructionPeriod, setConstructionPeriod] = useState("");
+  const [projectName, setProjectName] = useState("");
+  const [client, setClient] = useState("");
+  const [contractAmount, setContractAmount] = useState("");
+  const [version, setVersion] = useState("011");
+  const [createdDate, setCreatedDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+  });
 
-  // order-contractの全発注から工種を集めてledgerRowsを構築
+  // 予算サマリー
+  const [budgetAmount, setBudgetAmount] = useState("0");
+  const [orderAmount, setOrderAmount] = useState("0");
+  const [plannedOrder, setPlannedOrder] = useState("0");
+  const [budgetRemain, setBudgetRemain] = useState("0");
+  const [plannedProfit, setPlannedProfit] = useState("0");
+  const [estimatedCost, setEstimatedCost] = useState("0");
+
+  // 費目別内訳
+  const [materialBudget, setMaterialBudget] = useState("0");
+  const [materialOrder, setMaterialOrder] = useState("0");
+  const [materialPlanned, setMaterialPlanned] = useState("0");
+  const [materialRemain, setMaterialRemain] = useState("0");
+  const [subcontractBudget, setSubcontractBudget] = useState("0");
+  const [subcontractOrder, setSubcontractOrder] = useState("0");
+  const [subcontractPlanned, setSubcontractPlanned] = useState("0");
+  const [subcontractRemain, setSubcontractRemain] = useState("0");
+  const [expenseBudget, setExpenseBudget] = useState("0");
+  const [expenseOrder, setExpenseOrder] = useState("0");
+  const [expensePlanned, setExpensePlanned] = useState("0");
+  const [expenseRemain, setExpenseRemain] = useState("0");
+
+  // 進捗追跡
+  const [actualProgress, setActualProgress] = useState<ProgressRow>({
+    progress: "0.00",
+    progressAmount: "0",
+    diffPercent: "",
+    diffAmount: "",
+    judgment: "",
+  });
+  const [currentMonthForecast, setCurrentMonthForecast] = useState<ProgressRow>({
+    progress: "0.00",
+    progressAmount: "0",
+    diffPercent: "0.00",
+    diffAmount: "0",
+    judgment: "",
+  });
+  const [nextQuarterForecast, setNextQuarterForecast] = useState<ProgressRow>({
+    progress: "0.00",
+    progressAmount: "0",
+    diffPercent: "0.00",
+    diffAmount: "0",
+    judgment: "",
+  });
+
+  // 詳細行（15行）
+  const [detailRows, setDetailRows] = useState<DetailRow[]>(() => {
+    return Array(15).fill(null).map(() => ({
+      codeItem: "",
+      budgetAmount: "",
+      approvalNo: "",
+      approvalDate: "",
+      orderVendor: "",
+      orderAmount: "",
+      balance: "",
+    }));
+  });
+
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
+
+  // 工事番号バリデーション（9桁-3桁）
+  const validateProjectNumber = (num: string): boolean => {
+    const pattern = /^\d{9}-\d{3}$/;
+    return pattern.test(num);
+  };
+
+  // 工事番号で台帳データを読み込む
+  const handleLoadByProjectNumber = () => {
+    setLoadError("");
+
+    if (!projectNumber.trim()) {
+      setLoadError("工事番号を入力してください");
+      return;
+    }
+
+    if (!validateProjectNumber(projectNumber)) {
+      setLoadError("工事番号は「数字9桁-3桁」の形式で入力してください（例：123456789-001）");
+      return;
+    }
+
+    // TODO: 実際のAPIから台帳データを取得する処理
+    // 仮実装：読み込み成功のアラート
+    alert(`工事番号 ${projectNumber} の台帳データを読み込みます`);
+  };
+
+  // 申請処理
+  const handleSubmit = () => {
+    if (!projectNumber.trim()) {
+      alert("工事番号を入力してください");
+      return;
+    }
+
+    if (!validateProjectNumber(projectNumber)) {
+      alert("工事番号は「数字9桁-3桁」の形式で入力してください");
+      return;
+    }
+
+    // TODO: 実際の申請処理
+    alert(`工事番号 ${projectNumber} の台帳を申請しました`);
+  };
+
+  // order-contractの全発注から工種を集めてdetailRowsを構築
   useEffect(() => {
-    const allRows: BudgetLedgerRow[] = [];
+    const allRows: DetailRow[] = [];
 
     orders.forEach((order, orderIdx) => {
       order.rows.forEach((row) => {
-        // 空行はスキップ
         if (!row.workType && !row.execBudget && !row.contractAmount) return;
 
         allRows.push({
-          codeItem: row.workType || row.no,
-          budgetAmount: row.execBudget,
+          codeItem: row.workType || row.no || "",
+          budgetAmount: row.execBudget || "",
           approvalNo: order.header.orderNo || `発注${orderIdx + 1}`,
-          approvalDate: order.header.orderDate,
-          orderVendor: order.header.vendor,
-          orderAmount: row.contractAmount,
-          plannedOrder: "", // ユーザー入力
-          balance: "", // 自動計算
+          approvalDate: order.header.orderDate || "",
+          orderVendor: order.header.vendor || "",
+          orderAmount: row.contractAmount || "",
+          balance: "",
         });
       });
     });
 
-    // 既存のledgerRowsのplannedOrderを保持
-    const mergedRows = allRows.map((newRow, idx) => {
-      const existingRow = ledgerRows[idx];
-      return {
-        ...newRow,
-        plannedOrder: existingRow?.plannedOrder || "",
-        balance: "", // 後で計算
-      };
+    // 既存のdetailRowsを更新（最大15行）
+    const updatedRows = [...detailRows];
+    allRows.slice(0, 15).forEach((row, idx) => {
+      if (updatedRows[idx]) {
+        updatedRows[idx] = {
+          ...row,
+          balance: formatNum(toNum(row.budgetAmount) - toNum(row.orderAmount)),
+        };
+      }
     });
-
-    setLedgerRows(mergedRows);
+    setDetailRows(updatedRows);
   }, [orders]);
 
-  // 残高を計算
-  const computedRows = useMemo(() => {
-    return ledgerRows.map(row => ({
-      ...row,
-      balance: formatNum(toNum(row.budgetAmount) - toNum(row.orderAmount) - toNum(row.plannedOrder)),
-    }));
-  }, [ledgerRows]);
+  // 残高を自動計算
+  useEffect(() => {
+    setDetailRows(rows =>
+      rows.map(row => ({
+        ...row,
+        balance: formatNum(toNum(row.budgetAmount) - toNum(row.orderAmount)),
+      }))
+    );
+  }, [detailRows.map(r => r.budgetAmount + r.orderAmount).join(',')]);
 
-  // 発注予定金額の変更
-  const handlePlannedOrderChange = (idx: number, value: string) => {
-    setLedgerRows(ledgerRows.map((row, i) =>
-      i === idx ? { ...row, plannedOrder: value } : row
-    ));
+  // 費目別合計を自動計算
+  useEffect(() => {
+    const totalBudget = detailRows.reduce((sum, row) => sum + toNum(row.budgetAmount), 0);
+    const totalOrder = detailRows.reduce((sum, row) => sum + toNum(row.orderAmount), 0);
+    const totalPlanned = toNum(plannedOrder);
+    const totalRemain = totalBudget - totalOrder - totalPlanned;
+
+    setBudgetAmount(formatNum(totalBudget));
+    setOrderAmount(formatNum(totalOrder));
+    setBudgetRemain(formatNum(totalRemain));
+    setPlannedProfit(formatNum(toNum(contractAmount) - totalOrder - totalPlanned));
+  }, [detailRows, plannedOrder, contractAmount]);
+
+  // 進捗金額から出来高%を計算
+  const calculateProgress = (amount: string) => {
+    const cost = toNum(estimatedCost) || toNum(budgetAmount);
+    if (cost === 0) return "0.00";
+    return ((toNum(amount) / cost) * 100).toFixed(2);
   };
 
-  // 合計計算
-  const totals = useMemo(() => {
-    const total = {
-      budgetAmount: 0,
-      orderAmount: 0,
-      plannedOrder: 0,
-      balance: 0,
-    };
-    computedRows.forEach(row => {
-      total.budgetAmount += toNum(row.budgetAmount);
-      total.orderAmount += toNum(row.orderAmount);
-      total.plannedOrder += toNum(row.plannedOrder);
-      total.balance += toNum(row.balance);
-    });
-    return total;
-  }, [computedRows]);
+  // 差(%)を計算
+  const calculateDiffPercent = (progress: string) => {
+    const actual = parseFloat(actualProgress.progress) || 0;
+    const current = parseFloat(progress) || 0;
+    return (current - actual).toFixed(2);
+  };
 
-  // PDF出力
-  const handleExportPDF = async () => {
-    setPdfLoading(true);
-    try {
-      // PDFテンプレート読み込み
-      const response = await fetch("/工事実行予算台帳入力欄あり.pdf");
-      const pdfBytes = await response.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(pdfBytes);
+  // 差(金額)を計算
+  const calculateDiffAmount = (progressAmount: string) => {
+    const actual = toNum(actualProgress.progressAmount);
+    const current = toNum(progressAmount);
+    return formatNum(current - actual);
+  };
 
-      // 日本語フォント埋め込み
-      pdfDoc.registerFontkit(fontkit);
-      const fontResponse = await fetch("/fonts/NotoSansCJKjp-Regular.otf");
-      const fontBytes = await fontResponse.arrayBuffer();
-      const japaneseFont = await pdfDoc.embedFont(fontBytes);
-
-      const form = pdfDoc.getForm();
-
-      // 発注明細の各行をPDFフィールドにマッピング
-      computedRows.forEach((row, idx) => {
-        const rowNum = idx + 1;
-
-        // 工種コードと工種名を1文字スペースで結合してcodeItemに
-        // ordersから元データを取得（workTypeCodeとworkTypeを結合）
-        let codeItemValue = row.codeItem;
-        // ordersからworkTypeCodeを探す
-        orders.forEach((order) => {
-          order.rows.forEach((orderRow) => {
-            if (orderRow.workType === row.codeItem || orderRow.no === row.codeItem) {
-              // workTypeCode と workType を1文字スペースで結合
-              if (orderRow.workTypeCode && orderRow.workType) {
-                codeItemValue = `${orderRow.workTypeCode} ${orderRow.workType}`;
-              } else if (orderRow.workTypeCode) {
-                codeItemValue = orderRow.workTypeCode;
-              } else if (orderRow.workType) {
-                codeItemValue = orderRow.workType;
-              }
-            }
-          });
-        });
-
-        // 各フィールドに値を設定
-        const fieldMappings: { [key: string]: string } = {
-          [`row${rowNum}_codeItem`]: codeItemValue,
-          [`row${rowNum}_budgetAmount`]: row.budgetAmount,
-          [`row${rowNum}_orderAmount`]: row.orderAmount,
-          [`row${rowNum}_balance`]: row.balance,
-        };
-
-        Object.entries(fieldMappings).forEach(([fieldName, value]) => {
-          try {
-            const textField = form.getTextField(fieldName);
-            textField.setFontSize(9);
-            textField.setAlignment(TextAlignment.Center);
-            textField.setText(value || "");
-            textField.updateAppearances(japaneseFont);
-          } catch {
-            console.log(`Field not found: ${fieldName}`);
-          }
-        });
-      });
-
-      // フォームをフラット化
-      form.flatten();
-
-      // PDFをダウンロード
-      const filledPdfBytes = await pdfDoc.save();
-      const ab = new ArrayBuffer(filledPdfBytes.byteLength);
-      new Uint8Array(ab).set(filledPdfBytes);
-      const blob = new Blob([ab], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `工事実行予算台帳.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("PDF出力エラー:", error);
-      alert("PDF出力に失敗しました");
-    } finally {
-      setPdfLoading(false);
-    }
+  // 詳細行の更新
+  const updateDetailRow = (idx: number, field: keyof DetailRow, value: string) => {
+    setDetailRows(rows =>
+      rows.map((row, i) =>
+        i === idx ? { ...row, [field]: value } : row
+      )
+    );
   };
 
   const inputStyle = {
     width: '100%',
-    padding: '0.5rem',
+    padding: '0.4rem',
     fontSize: '0.85rem',
     border: '1px solid #dde5f4',
-    borderRadius: '0.375rem',
+    borderRadius: '0.25rem',
     boxSizing: 'border-box' as const,
-  };
-
-  const labelStyle = {
-    display: 'block',
-    marginBottom: '0.375rem',
-    fontSize: '0.8rem',
-    fontWeight: 600,
-    color: '#1a1c20',
-  };
-
-  const cardStyle = {
-    backgroundColor: '#fff',
-    borderRadius: '0.625rem',
-    border: '1px solid #dde5f4',
-    marginBottom: '1.5rem',
-  };
-
-  const cardHeaderStyle = {
-    padding: '0.75rem 1rem',
-    borderBottom: '1px solid #dde5f4',
-    backgroundColor: '#f8f9fa',
   };
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f0f2f7' }}>
       <header style={{ backgroundColor: '#132942', color: '#fff', padding: '0.75rem 0', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>工事実行予算台帳</h1>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
-              onClick={() => router.push('/order-contract')}
+              onClick={() => router.push('/function-master')}
               style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.5)', color: '#fff', borderRadius: '0.375rem', cursor: 'pointer' }}
             >
-              ← 外注発注へ戻る
+              ← 機能マスタへ戻る
             </button>
             <button
-              onClick={handleExportPDF}
-              disabled={pdfLoading}
-              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: pdfLoading ? '#9ca3af' : '#0d56c9', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: pdfLoading ? 'not-allowed' : 'pointer' }}
+              onClick={() => alert('保存しました')}
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#fff', color: '#132942', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}
             >
-              {pdfLoading ? 'PDF生成中...' : 'PDF出力'}
+              保存
+            </button>
+            <button
+              onClick={handleSubmit}
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}
+            >
+              申請
             </button>
           </div>
         </div>
       </header>
 
-      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '1.5rem 24px' }}>
-        {/* 基本情報 */}
-        <div style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1a1c20' }}>基本情報</h2>
-          </div>
-          <div style={{ padding: '1rem' }}>
+      <main style={{ maxWidth: '1600px', margin: '0 auto', padding: '1.5rem 24px' }}>
+        <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', border: '1px solid #dde5f4', padding: '2rem' }}>
+          {/* ヘッダー部分 */}
+          <div style={{ marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1a1c20' }}>工事実行予算台帳</h2>
+              <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#1a1c20' }}>{createdDate} 作成</div>
+                  <div style={{ fontSize: '0.85rem', color: '#1a1c20', marginTop: '0.25rem' }}>Ver. {version}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 工事情報 */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
               <div>
-                <label style={labelStyle}>受注先</label>
+                <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8rem', fontWeight: 600, color: '#1a1c20' }}>工事番号</label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="text"
+                      value={projectNumber}
+                      onChange={(e) => {
+                        setProjectNumber(e.target.value);
+                        setLoadError("");
+                      }}
+                      placeholder="123456789-001"
+                      style={{
+                        ...inputStyle,
+                        borderColor: loadError ? '#dc3545' : '#dde5f4',
+                      }}
+                    />
+                    {loadError && (
+                      <div style={{ fontSize: '0.75rem', color: '#dc3545', marginTop: '0.25rem' }}>
+                        {loadError}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleLoadByProjectNumber}
+                    style={{
+                      padding: '0.4rem 0.75rem',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      backgroundColor: '#0d6efd',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '0.25rem',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    読込
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8rem', fontWeight: 600, color: '#1a1c20' }}>工期</label>
                 <input
                   type="text"
-                  value={header.contractor}
-                  onChange={(e) => setHeader({ ...header, contractor: e.target.value })}
+                  value={constructionPeriod}
+                  onChange={(e) => setConstructionPeriod(e.target.value)}
+                  placeholder="YYYY-MM-DD ~ YYYY-MM-DD"
                   style={inputStyle}
                 />
               </div>
               <div>
-                <label style={labelStyle}>注中金額</label>
+                <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8rem', fontWeight: 600, color: '#1a1c20' }}>工事名</label>
                 <input
                   type="text"
-                  value={header.inProgressAmount}
-                  onChange={(e) => setHeader({ ...header, inProgressAmount: e.target.value })}
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
                   style={inputStyle}
                 />
               </div>
               <div>
-                <label style={labelStyle}>予算金額</label>
+                <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8rem', fontWeight: 600, color: '#1a1c20' }}>受注先</label>
                 <input
                   type="text"
-                  value={header.budgetAmount}
-                  onChange={(e) => setHeader({ ...header, budgetAmount: e.target.value })}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>発注額</label>
-                <input
-                  type="text"
-                  value={header.orderAmount}
-                  onChange={(e) => setHeader({ ...header, orderAmount: e.target.value })}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>発注予定</label>
-                <input
-                  type="text"
-                  value={header.plannedOrder}
-                  onChange={(e) => setHeader({ ...header, plannedOrder: e.target.value })}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>予算残</label>
-                <input
-                  type="text"
-                  value={header.budgetRemain}
-                  onChange={(e) => setHeader({ ...header, budgetRemain: e.target.value })}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>予定粗利</label>
-                <input
-                  type="text"
-                  value={header.plannedProfit}
-                  onChange={(e) => setHeader({ ...header, plannedProfit: e.target.value })}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>見積総原価</label>
-                <input
-                  type="text"
-                  value={header.estimatedCost}
-                  onChange={(e) => setHeader({ ...header, estimatedCost: e.target.value })}
+                  value={client}
+                  onChange={(e) => setClient(e.target.value)}
                   style={inputStyle}
                 />
               </div>
             </div>
           </div>
-        </div>
 
-        {/* 費目別集計表 */}
-        <div style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1a1c20' }}>費目別集計</h2>
+          {/* 予算サマリー */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+            {/* 左側：基本数値 */}
+            <div style={{ border: '1px solid #dde5f4', borderRadius: '0.5rem', padding: '1rem' }}>
+              <div style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '1rem', color: '#1a1c20' }}>予算サマリー</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.75rem', fontWeight: 600, color: '#1a1c20' }}>受注金額 (A)</label>
+                  <input
+                    type="text"
+                    value={contractAmount}
+                    onChange={(e) => setContractAmount(e.target.value)}
+                    style={{ ...inputStyle, textAlign: 'right' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.75rem', fontWeight: 600, color: '#686e78' }}>予算金額 (B)</label>
+                  <input
+                    type="text"
+                    value={budgetAmount}
+                    readOnly
+                    style={{ ...inputStyle, textAlign: 'right', backgroundColor: '#f8f9fa', color: '#495057' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.75rem', fontWeight: 600, color: '#686e78' }}>発注額</label>
+                  <input
+                    type="text"
+                    value={orderAmount}
+                    readOnly
+                    style={{ ...inputStyle, textAlign: 'right', backgroundColor: '#f8f9fa', color: '#495057' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.75rem', fontWeight: 600, color: '#1a1c20' }}>発注予定</label>
+                  <input
+                    type="text"
+                    value={plannedOrder}
+                    onChange={(e) => setPlannedOrder(e.target.value)}
+                    style={{ ...inputStyle, textAlign: 'right' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.75rem', fontWeight: 600, color: '#686e78' }}>予算残</label>
+                  <input
+                    type="text"
+                    value={budgetRemain}
+                    readOnly
+                    style={{ ...inputStyle, textAlign: 'right', backgroundColor: '#f8f9fa', color: '#495057' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.75rem', fontWeight: 600, color: '#686e78' }}>予定粗利 (C)</label>
+                  <input
+                    type="text"
+                    value={plannedProfit}
+                    readOnly
+                    style={{ ...inputStyle, textAlign: 'right', backgroundColor: '#f8f9fa', color: '#495057' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 右側：費目別内訳 */}
+            <div style={{ border: '1px solid #dde5f4', borderRadius: '0.5rem', padding: '1rem' }}>
+              <div style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '1rem', color: '#1a1c20' }}>費目別内訳</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>項目</th>
+                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4' }}>実行予算</th>
+                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4' }}>発注額</th>
+                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4' }}>発注予定</th>
+                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4' }}>予算残</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}>材料費</td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={materialBudget} onChange={(e) => setMaterialBudget(e.target.value)} style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }} />
+                    </td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={materialOrder} onChange={(e) => setMaterialOrder(e.target.value)} style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }} />
+                    </td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={materialPlanned} onChange={(e) => setMaterialPlanned(e.target.value)} style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }} />
+                    </td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={materialRemain} onChange={(e) => setMaterialRemain(e.target.value)} style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}>外注費</td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={subcontractBudget} onChange={(e) => setSubcontractBudget(e.target.value)} style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }} />
+                    </td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={subcontractOrder} onChange={(e) => setSubcontractOrder(e.target.value)} style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }} />
+                    </td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={subcontractPlanned} onChange={(e) => setSubcontractPlanned(e.target.value)} style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }} />
+                    </td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={subcontractRemain} onChange={(e) => setSubcontractRemain(e.target.value)} style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }} />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}>経費</td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={expenseBudget} onChange={(e) => setExpenseBudget(e.target.value)} style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }} />
+                    </td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={expenseOrder} onChange={(e) => setExpenseOrder(e.target.value)} style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }} />
+                    </td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={expensePlanned} onChange={(e) => setExpensePlanned(e.target.value)} style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }} />
+                    </td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={expenseRemain} onChange={(e) => setExpenseRemain(e.target.value)} style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }} />
+                    </td>
+                  </tr>
+                  <tr style={{ backgroundColor: '#f8f9fa' }}>
+                    <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', fontWeight: 700 }}>計</td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={formatNum(toNum(materialBudget) + toNum(subcontractBudget) + toNum(expenseBudget))} readOnly style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem', backgroundColor: '#f8f9fa', fontWeight: 600 }} />
+                    </td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={formatNum(toNum(materialOrder) + toNum(subcontractOrder) + toNum(expenseOrder))} readOnly style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem', backgroundColor: '#f8f9fa', fontWeight: 600 }} />
+                    </td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={formatNum(toNum(materialPlanned) + toNum(subcontractPlanned) + toNum(expensePlanned))} readOnly style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem', backgroundColor: '#f8f9fa', fontWeight: 600 }} />
+                    </td>
+                    <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                      <input type="text" value={formatNum(toNum(materialRemain) + toNum(subcontractRemain) + toNum(expenseRemain))} readOnly style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem', backgroundColor: '#f8f9fa', fontWeight: 600 }} />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.75rem', fontWeight: 600, color: '#1a1c20' }}>見積総原価</label>
+                <input
+                  type="text"
+                  value={estimatedCost}
+                  onChange={(e) => setEstimatedCost(e.target.value)}
+                  style={{ ...inputStyle, textAlign: 'right' }}
+                />
+              </div>
+            </div>
           </div>
-          <div style={{ padding: '1rem', overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+
+          {/* 進捗追跡 */}
+          <div style={{ marginBottom: '2rem', border: '1px solid #dde5f4', borderRadius: '0.5rem', padding: '1rem' }}>
+            <div style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '1rem', color: '#1a1c20' }}>進捗追跡</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
               <thead>
                 <tr>
-                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', color: '#1a1c20' }}>費目</th>
-                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', color: '#1a1c20' }}>実行予算</th>
-                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', color: '#1a1c20' }}>発注額</th>
-                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', color: '#1a1c20' }}>発注予定</th>
-                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', color: '#1a1c20' }}>予算残</th>
+                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>出来高</th>
+                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4' }}>出来高金額</th>
+                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4' }}>差(%)</th>
+                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4' }}>差(金額)</th>
+                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>判定</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', fontWeight: 500 }}>材料費</td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.materialExecBudget} onChange={(e) => setTable({ ...table, materialExecBudget: e.target.value })} style={{ ...inputStyle, textAlign: 'right' }} /></td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.materialOrderAmount} onChange={(e) => setTable({ ...table, materialOrderAmount: e.target.value })} style={{ ...inputStyle, textAlign: 'right' }} /></td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.materialPlannedOrder} onChange={(e) => setTable({ ...table, materialPlannedOrder: e.target.value })} style={{ ...inputStyle, textAlign: 'right' }} /></td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.materialBudgetRemain} onChange={(e) => setTable({ ...table, materialBudgetRemain: e.target.value })} style={{ ...inputStyle, textAlign: 'right' }} /></td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', fontWeight: 500 }}>実績</td>
+                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                    <input
+                      type="text"
+                      value={actualProgress.progress}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setActualProgress({ ...actualProgress, progress: val });
+                      }}
+                      style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem', width: '80px' }}
+                    />%
+                  </td>
+                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                    <input
+                      type="text"
+                      value={actualProgress.progressAmount}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const progress = calculateProgress(val);
+                        setActualProgress({ ...actualProgress, progressAmount: val, progress });
+                      }}
+                      style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }}
+                    />
+                  </td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{actualProgress.diffPercent}</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{actualProgress.diffAmount}</td>
+                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                    <input
+                      type="text"
+                      value={actualProgress.judgment}
+                      onChange={(e) => setActualProgress({ ...actualProgress, judgment: e.target.value })}
+                      style={{ ...inputStyle, padding: '0.25rem' }}
+                    />
+                  </td>
                 </tr>
                 <tr>
-                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', fontWeight: 500 }}>外注費</td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.subcontractExecBudget} onChange={(e) => setTable({ ...table, subcontractExecBudget: e.target.value })} style={{ ...inputStyle, textAlign: 'right' }} /></td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.subcontractOrderAmount} onChange={(e) => setTable({ ...table, subcontractOrderAmount: e.target.value })} style={{ ...inputStyle, textAlign: 'right' }} /></td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.subcontractPlannedOrder} onChange={(e) => setTable({ ...table, subcontractPlannedOrder: e.target.value })} style={{ ...inputStyle, textAlign: 'right' }} /></td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.subcontractBudgetRemain} onChange={(e) => setTable({ ...table, subcontractBudgetRemain: e.target.value })} style={{ ...inputStyle, textAlign: 'right' }} /></td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', fontWeight: 500 }}>当月予想</td>
+                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                    <input
+                      type="text"
+                      value={currentMonthForecast.progress}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const diffPercent = calculateDiffPercent(val);
+                        setCurrentMonthForecast({ ...currentMonthForecast, progress: val, diffPercent });
+                      }}
+                      style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem', width: '80px' }}
+                    />%
+                  </td>
+                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                    <input
+                      type="text"
+                      value={currentMonthForecast.progressAmount}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const progress = calculateProgress(val);
+                        const diffPercent = calculateDiffPercent(progress);
+                        const diffAmount = calculateDiffAmount(val);
+                        setCurrentMonthForecast({ ...currentMonthForecast, progressAmount: val, progress, diffPercent, diffAmount });
+                      }}
+                      style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }}
+                    />
+                  </td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{currentMonthForecast.diffPercent}%</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{currentMonthForecast.diffAmount}</td>
+                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                    <input
+                      type="text"
+                      value={currentMonthForecast.judgment}
+                      onChange={(e) => setCurrentMonthForecast({ ...currentMonthForecast, judgment: e.target.value })}
+                      style={{ ...inputStyle, padding: '0.25rem' }}
+                    />
+                  </td>
                 </tr>
                 <tr>
-                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', fontWeight: 500 }}>経費</td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.expenseExecBudget} onChange={(e) => setTable({ ...table, expenseExecBudget: e.target.value })} style={{ ...inputStyle, textAlign: 'right' }} /></td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.expenseOrderAmount} onChange={(e) => setTable({ ...table, expenseOrderAmount: e.target.value })} style={{ ...inputStyle, textAlign: 'right' }} /></td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.expensePlannedOrder} onChange={(e) => setTable({ ...table, expensePlannedOrder: e.target.value })} style={{ ...inputStyle, textAlign: 'right' }} /></td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.expenseBudgetRemain} onChange={(e) => setTable({ ...table, expenseBudgetRemain: e.target.value })} style={{ ...inputStyle, textAlign: 'right' }} /></td>
-                </tr>
-                <tr style={{ backgroundColor: '#f8f9fa' }}>
-                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', fontWeight: 700 }}>計</td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.totalExecBudget} onChange={(e) => setTable({ ...table, totalExecBudget: e.target.value })} style={{ ...inputStyle, textAlign: 'right', fontWeight: 600 }} /></td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.totalOrderAmount} onChange={(e) => setTable({ ...table, totalOrderAmount: e.target.value })} style={{ ...inputStyle, textAlign: 'right', fontWeight: 600 }} /></td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.totalPlannedOrder} onChange={(e) => setTable({ ...table, totalPlannedOrder: e.target.value })} style={{ ...inputStyle, textAlign: 'right', fontWeight: 600 }} /></td>
-                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}><input type="text" value={table.totalBudgetRemain} onChange={(e) => setTable({ ...table, totalBudgetRemain: e.target.value })} style={{ ...inputStyle, textAlign: 'right', fontWeight: 600 }} /></td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', fontWeight: 500 }}>翌四半期予想</td>
+                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                    <input
+                      type="text"
+                      value={nextQuarterForecast.progress}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const diffPercent = calculateDiffPercent(val);
+                        setNextQuarterForecast({ ...nextQuarterForecast, progress: val, diffPercent });
+                      }}
+                      style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem', width: '80px' }}
+                    />%
+                  </td>
+                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                    <input
+                      type="text"
+                      value={nextQuarterForecast.progressAmount}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const progress = calculateProgress(val);
+                        const diffPercent = calculateDiffPercent(progress);
+                        const diffAmount = calculateDiffAmount(val);
+                        setNextQuarterForecast({ ...nextQuarterForecast, progressAmount: val, progress, diffPercent, diffAmount });
+                      }}
+                      style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }}
+                    />
+                  </td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{nextQuarterForecast.diffPercent}%</td>
+                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{nextQuarterForecast.diffAmount}</td>
+                  <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                    <input
+                      type="text"
+                      value={nextQuarterForecast.judgment}
+                      onChange={(e) => setNextQuarterForecast({ ...nextQuarterForecast, judgment: e.target.value })}
+                      style={{ ...inputStyle, padding: '0.25rem' }}
+                    />
+                  </td>
                 </tr>
               </tbody>
             </table>
+            <div style={{ fontSize: '0.75rem', color: '#686e78', marginTop: '0.5rem' }}>
+              出来高(%) = 出来高金額 / 見積総原価または実行予算金額
+            </div>
           </div>
-        </div>
 
-        {/* 発注明細 */}
-        <div style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1a1c20' }}>発注明細（外注発注から自動取得）</h2>
-          </div>
-          <div style={{ padding: '1rem', overflowX: 'auto' }}>
-            {computedRows.length === 0 ? (
-              <div style={{ padding: '2rem', textAlign: 'center', color: '#686e78' }}>
-                外注発注にデータがありません。
-                <Link href="/order-contract" style={{ color: '#0d56c9', marginLeft: '0.5rem' }}>
-                  外注発注を入力する →
-                </Link>
-              </div>
-            ) : (
+          {/* 詳細コスト内訳表 */}
+          <div style={{ border: '1px solid #dde5f4', borderRadius: '0.5rem', padding: '1rem' }}>
+            <div style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '1rem', color: '#1a1c20' }}>詳細コスト内訳</div>
+            <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                 <thead>
                   <tr>
-                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', color: '#1a1c20' }}>コード・費目</th>
-                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', color: '#1a1c20' }}>予算金額</th>
-                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', color: '#1a1c20' }}>決裁No.</th>
-                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', color: '#1a1c20' }}>決裁日</th>
-                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', color: '#1a1c20' }}>発注業者</th>
-                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', color: '#1a1c20' }}>発注金額</th>
-                    <th style={{ padding: '0.5rem', backgroundColor: '#e8f0fe', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', color: '#0d56c9' }}>発注予定金額</th>
-                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', color: '#1a1c20' }}>残高</th>
+                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>コード・費目名</th>
+                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4' }}>予算金額</th>
+                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>決裁 No.</th>
+                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>決裁日</th>
+                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4' }}>発注業者</th>
+                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4' }}>発注金額</th>
+                    <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4' }}>残高</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {computedRows.map((row, idx) => (
+                  {detailRows.map((row, idx) => (
                     <tr key={idx}>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}>{row.codeItem}</td>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{row.budgetAmount}</td>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}>{row.approvalNo}</td>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}>{row.approvalDate}</td>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}>{row.orderVendor}</td>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{row.orderAmount}</td>
-                      <td style={{ padding: '0.25rem', border: '1px solid #dde5f4', backgroundColor: '#e8f0fe' }}>
+                      <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
                         <input
                           type="text"
-                          value={row.plannedOrder}
-                          onChange={(e) => handlePlannedOrderChange(idx, e.target.value)}
-                          placeholder="入力"
-                          style={{ ...inputStyle, textAlign: 'right', backgroundColor: '#fff' }}
+                          value={row.codeItem}
+                          onChange={(e) => updateDetailRow(idx, 'codeItem', e.target.value)}
+                          style={{ ...inputStyle, padding: '0.25rem' }}
                         />
                       </td>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right', fontWeight: 500 }}>{row.balance}</td>
+                      <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                        <input
+                          type="text"
+                          value={row.budgetAmount}
+                          onChange={(e) => updateDetailRow(idx, 'budgetAmount', e.target.value)}
+                          style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                        <input
+                          type="text"
+                          value={row.approvalNo}
+                          onChange={(e) => updateDetailRow(idx, 'approvalNo', e.target.value)}
+                          style={{ ...inputStyle, padding: '0.25rem' }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                        <input
+                          type="text"
+                          value={row.approvalDate}
+                          onChange={(e) => updateDetailRow(idx, 'approvalDate', e.target.value)}
+                          style={{ ...inputStyle, padding: '0.25rem' }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                        <input
+                          type="text"
+                          value={row.orderVendor}
+                          onChange={(e) => updateDetailRow(idx, 'orderVendor', e.target.value)}
+                          style={{ ...inputStyle, padding: '0.25rem' }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.25rem', border: '1px solid #dde5f4' }}>
+                        <input
+                          type="text"
+                          value={row.orderAmount}
+                          onChange={(e) => updateDetailRow(idx, 'orderAmount', e.target.value)}
+                          style={{ ...inputStyle, textAlign: 'right', padding: '0.25rem' }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right', fontWeight: 500 }}>
+                        {row.balance}
+                      </td>
                     </tr>
                   ))}
-                  {/* 合計行 */}
-                  <tr style={{ backgroundColor: '#f8f9fa' }}>
-                    <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', fontWeight: 700 }}>合計</td>
-                    <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right', fontWeight: 700 }}>{formatNum(totals.budgetAmount)}</td>
-                    <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}></td>
-                    <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}></td>
-                    <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}></td>
-                    <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right', fontWeight: 700 }}>{formatNum(totals.orderAmount)}</td>
-                    <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right', fontWeight: 700, backgroundColor: '#e8f0fe' }}>{formatNum(totals.plannedOrder)}</td>
-                    <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right', fontWeight: 700 }}>{formatNum(totals.balance)}</td>
-                  </tr>
                 </tbody>
               </table>
-            )}
+            </div>
           </div>
         </div>
       </main>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface ScheduleRow {
   workTypeCode: string;
@@ -17,8 +18,38 @@ const createEmptyRow = (): ScheduleRow => ({
 });
 
 export default function OrderSchedulePage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'memo' | 'submission'>('memo');
   const [tableUIMode, setTableUIMode] = useState<'standard' | 'hierarchy' | 'dense'>('standard');
+
+  // 工事番号関連
+  const [projectNumber, setProjectNumber] = useState("");
+  const [loadError, setLoadError] = useState("");
+
+  // 工事番号バリデーション（9桁-3桁）
+  const validateProjectNumber = (num: string): boolean => {
+    const pattern = /^\d{9}-\d{3}$/;
+    return pattern.test(num);
+  };
+
+  // 工事番号で発注予定表データを読み込む
+  const handleLoadByProjectNumber = () => {
+    setLoadError("");
+
+    if (!projectNumber.trim()) {
+      setLoadError("工事番号を入力してください");
+      return;
+    }
+
+    if (!validateProjectNumber(projectNumber)) {
+      setLoadError("工事番号は「数字9桁-3桁」の形式で入力してください（例：123456789-001）");
+      return;
+    }
+
+    // TODO: 実際のAPIから発注予定表データを取得する処理
+    // 仮実装：読み込み成功のアラート
+    alert(`工事番号 ${projectNumber} の発注予定表データを読み込みます`);
+  };
 
   // メモ用の行データ
   const [memoRows, setMemoRows] = useState<ScheduleRow[]>([createEmptyRow()]);
@@ -108,6 +139,21 @@ export default function OrderSchedulePage() {
           <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>発注予定表</h1>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
+              onClick={() => router.push('/function-master')}
+              style={{
+                padding: '0.5rem 1rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                backgroundColor: 'transparent',
+                border: '1px solid rgba(255,255,255,0.5)',
+                color: '#fff',
+                borderRadius: '0.375rem',
+                cursor: 'pointer',
+              }}
+            >
+              ← 機能マスタへ戻る
+            </button>
+            <button
               onClick={() => alert('保存しました')}
               style={{
                 padding: '0.5rem 1.25rem',
@@ -179,6 +225,58 @@ export default function OrderSchedulePage() {
 
       <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
         <main style={{ padding: '1.5rem 24px' }}>
+          {/* 工事番号入力エリア */}
+          <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', border: '1px solid #dde5f4', padding: '1.5rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8rem', fontWeight: 600, color: '#1a1c20' }}>
+                  工事番号
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                  <div>
+                    <input
+                      type="text"
+                      value={projectNumber}
+                      onChange={(e) => {
+                        setProjectNumber(e.target.value);
+                        setLoadError("");
+                      }}
+                      placeholder="123456789-001"
+                      style={{
+                        width: '200px',
+                        padding: '0.5rem',
+                        fontSize: '0.85rem',
+                        border: `1px solid ${loadError ? '#dc3545' : '#dde5f4'}`,
+                        borderRadius: '0.25rem',
+                      }}
+                    />
+                    {loadError && (
+                      <div style={{ fontSize: '0.75rem', color: '#dc3545', marginTop: '0.25rem', maxWidth: '300px' }}>
+                        {loadError}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleLoadByProjectNumber}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      backgroundColor: '#0d6efd',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '0.25rem',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    読込
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', border: '1px solid #dde5f4', padding: '2rem' }}>
             <div style={{ textAlign: 'left' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>

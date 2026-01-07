@@ -1,107 +1,174 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useOrderData } from "../contexts/OrderDataContext";
-
-// 数値変換
-function toNum(v: string) {
-  const n = Number(String(v).replace(/[,\s]/g, ""));
-  return Number.isFinite(n) ? n : 0;
-}
-
-// 数値フォーマット
-function formatNum(n: number) {
-  return n.toLocaleString();
-}
+import { useAuth, DEMO_USERS } from "../contexts/AuthContext";
+import { useData } from "../contexts/DataContext";
+import {
+  useOrderData,
+  DetailRow,
+  AdvanceRow,
+  VendorRow,
+  VendorFormData,
+  OrderHeader,
+} from "../contexts/OrderDataContext";
+import OrderFormSection from "../order-contract/components/OrderFormSection";
+import { SubjectMaster } from "../order-contract/types";
+import { calcPercent } from "../order-contract/utils";
 
 export default function OrderInquiryPage() {
   const router = useRouter();
-  const { orders, currentOrderIndex, setCurrentOrderIndex } = useOrderData();
+  const { currentUser } = useAuth();
+  const { addSubmission } = useData();
 
+  // マスターデータ
+  const [subjectMaster, setSubjectMaster] = useState<SubjectMaster[]>([]);
+
+  // 申請モーダル用
+  const [activeInquiryTab, setActiveInquiryTab] = useState(0);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedApprover, setSelectedApprover] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  const approvers = DEMO_USERS.filter(u => u.role === 'manager');
+
+  // マスターデータを読み込み
+  useEffect(() => {
+    fetch('/subjectMaster.json')
+      .then(res => res.json())
+      .then(data => setSubjectMaster(data))
+      .catch(err => console.error('マスターデータの読み込みに失敗:', err));
+  }, []);
+
+  // コンテキストから発注データを取得
+  const {
+    orders,
+    currentOrderIndex,
+    setCurrentOrderIndex,
+    addOrder,
+    removeOrder,
+    updateOrder,
+  } = useOrderData();
+
+  // 現在の発注データへのアクセサ
   const currentOrder = orders[currentOrderIndex];
+  const header = currentOrder.header;
+  const rows = currentOrder.rows;
+  const advanceRows = currentOrder.advanceRows;
+  const vendorForm = currentOrder.vendorForm;
+  const vendorRows = currentOrder.vendorRows;
 
-  // 合計計算
-  const totals = useMemo(() => {
-    const total = {
-      execBudget: 0,
-      contractAmount: 0,
-      contractTax: 0,
-      budgetRemain: 0,
-    };
-    currentOrder.rows.forEach(row => {
-      total.execBudget += toNum(row.execBudget);
-      total.contractAmount += toNum(row.contractAmount);
-      total.contractTax += toNum(row.contractTax);
-      total.budgetRemain += toNum(row.budgetRemain);
+  const setHeader = (updater: OrderHeader | ((h: OrderHeader) => OrderHeader)) => {
+    const newHeader = typeof updater === 'function' ? updater(header) : updater;
+    updateOrder(currentOrderIndex, { header: newHeader });
+  };
+  const setRows = (updater: DetailRow[] | ((r: DetailRow[]) => DetailRow[])) => {
+    const newRows = typeof updater === 'function' ? updater(rows) : updater;
+    updateOrder(currentOrderIndex, { rows: newRows });
+  };
+  const setAdvanceRows = (updater: AdvanceRow[] | ((r: AdvanceRow[]) => AdvanceRow[])) => {
+    const newAdvanceRows = typeof updater === 'function' ? updater(advanceRows) : updater;
+    updateOrder(currentOrderIndex, { advanceRows: newAdvanceRows });
+  };
+  const setVendorForm = (updater: VendorFormData | ((f: VendorFormData) => VendorFormData)) => {
+    const newVendorForm = typeof updater === 'function' ? updater(vendorForm) : updater;
+    updateOrder(currentOrderIndex, { vendorForm: newVendorForm });
+  };
+  const setVendorRows = (updater: VendorRow[] | ((r: VendorRow[]) => VendorRow[])) => {
+    const newVendorRows = typeof updater === 'function' ? updater(vendorRows) : updater;
+    updateOrder(currentOrderIndex, { vendorRows: newVendorRows });
+  };
+
+  // 新規発注を追加
+  const handleAddNewOrder = () => {
+    addOrder();
+  };
+
+  // 発注を削除
+  const handleRemoveOrder = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeOrder(idx);
+  };
+
+  const percentByRow = useMemo(
+    () => rows.map((r) => calcPercent(r.contractAmount, r.listPrice)),
+    [rows]
+  );
+
+  // 申請モーダルを開く
+  const handleOpenModal = () => {
+    setShowModal(true);
+    setIsSubmitted(false);
+    if (approvers.length > 0) {
+      setSelectedApprover(approvers[0].id);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setIsSubmitted(false);
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedApprover || !currentUser) return;
+
+    setIsSubmitting(true);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    addSubmission({
+      applicantId: currentUser.id,
+      applicantName: currentUser.name,
+      type: '発注契約',
+      title: header.projectName || '工事名未設定',
+      status: 'pending',
+      data: {
+        orderNo: header.orderNo,
+        vendor: header.vendor,
+        project: header.project,
+        subject: header.subject,
+        ordersCount: orders.length.toString(),
+      },
+      assignedTo: selectedApprover,
+      approvalFlow: [
+        { label: '自分', status: 'completed' },
+        { label: '工事部長', status: 'current' },
+        { label: '本社', status: 'pending' },
+      ],
     });
-    return total;
-  }, [currentOrder.rows]);
 
-  const cardStyle = {
-    backgroundColor: '#fff',
-    borderRadius: '0.625rem',
-    border: '1px solid #dde5f4',
-    marginBottom: '1.5rem',
-  };
-
-  const cardHeaderStyle = {
-    padding: '0.75rem 1rem',
-    borderBottom: '1px solid #dde5f4',
-    backgroundColor: '#f8f9fa',
-  };
-
-  const labelStyle = {
-    display: 'block',
-    marginBottom: '0.375rem',
-    fontSize: '0.8rem',
-    fontWeight: 600,
-    color: '#1a1c20',
-  };
-
-  const valueStyle = {
-    padding: '0.5rem',
-    fontSize: '0.85rem',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '0.375rem',
-    border: '1px solid #dde5f4',
+    setIsSubmitting(false);
+    setIsSubmitted(true);
   };
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f0f2f7' }}>
       <header style={{ backgroundColor: '#132942', color: '#fff', padding: '0.75rem 0', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>注文伺書</h1>
+          <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>外注発注契約登録</h1>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
-              onClick={() => router.push('/order-contract')}
+              onClick={() => router.push('/function-master')}
               style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.5)', color: '#fff', borderRadius: '0.375rem', cursor: 'pointer' }}
             >
-              ← 外注発注へ戻る
+              ← 機能マスタへ戻る
             </button>
             <button
-              onClick={() => alert('PDF出力機能は準備中です')}
-              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#6b7280', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}
+              onClick={handleOpenModal}
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}
             >
-              PDF出力
-            </button>
-            <button
-              onClick={() => router.push('/budget-ledger')}
-              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 600, backgroundColor: '#0d56c9', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}
-            >
-              工事実行予算台帳へ
+              申請
             </button>
           </div>
         </div>
       </header>
 
       {/* 発注タブ */}
-      {orders.length > 1 && (
-        <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #dde5f4', padding: '0.5rem 0' }}>
-          <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px', display: 'flex', gap: '0.5rem' }}>
-            {orders.map((_, idx) => (
+      <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #dde5f4', padding: '0.5rem 0' }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {orders.map((_, idx) => (
+            <div key={idx} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <button
-                key={idx}
                 onClick={() => setCurrentOrderIndex(idx)}
                 style={{
                   padding: '0.375rem 0.75rem',
@@ -116,153 +183,154 @@ export default function OrderInquiryPage() {
               >
                 外注発注({idx + 1})
               </button>
-            ))}
+              {orders.length > 1 && (
+                <button
+                  onClick={(e) => handleRemoveOrder(idx, e)}
+                  style={{
+                    marginLeft: '0.25rem',
+                    padding: '0.125rem 0.375rem',
+                    fontSize: '0.7rem',
+                    backgroundColor: '#fee2e2',
+                    color: '#dc2626',
+                    border: 'none',
+                    borderRadius: '0.25rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            onClick={handleAddNewOrder}
+            style={{
+              padding: '0.375rem 0.75rem',
+              fontSize: '0.8rem',
+              fontWeight: 500,
+              backgroundColor: '#fff',
+              color: '#0d56c9',
+              border: '1px dashed #0d56c9',
+              borderRadius: '0.25rem',
+              cursor: 'pointer',
+            }}
+          >
+            + 発注追加
+          </button>
+        </div>
+      </div>
+
+      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '1.5rem 24px' }}>
+        <OrderFormSection
+          header={header}
+          setHeader={setHeader}
+          rows={rows}
+          setRows={setRows}
+          advanceRows={advanceRows}
+          setAdvanceRows={setAdvanceRows}
+          vendorForm={vendorForm}
+          setVendorForm={setVendorForm}
+          vendorRows={vendorRows}
+          setVendorRows={setVendorRows}
+          percentByRow={percentByRow}
+          subjectMaster={subjectMaster}
+        />
+      </main>
+
+      {/* 申請モーダル（注文伺書のみ） */}
+      {showModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={handleCloseModal}>
+          <div style={{ backgroundColor: '#fff', borderRadius: '0.625rem', width: '95%', maxWidth: '1000px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #dde5f4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700, color: '#1a1c20' }}>注文伺書 申請確認</h2>
+              <button style={{ width: 32, height: 32, border: 'none', backgroundColor: 'transparent', fontSize: '1.5rem', cursor: 'pointer', color: '#686e78' }} onClick={handleCloseModal}>×</button>
+            </div>
+
+            {isSubmitted ? (
+              <div style={{ padding: '3rem', textAlign: 'center' }}>
+                <div style={{ padding: '1rem', backgroundColor: '#d1fae5', borderRadius: '0.5rem', color: '#065f46', fontSize: '0.95rem' }}>
+                  申請が完了しました。承認者に通知されました。
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* 注文伺書タブ */}
+                <div style={{ display: 'flex', borderBottom: '1px solid #dde5f4', overflowX: 'auto' }}>
+                  {orders.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveInquiryTab(idx)}
+                      style={{
+                        padding: '0.75rem 1rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        border: 'none',
+                        backgroundColor: '#fff',
+                        color: activeInquiryTab === idx ? '#0d56c9' : '#686e78',
+                        borderBottom: activeInquiryTab === idx ? '2px solid #0d56c9' : '2px solid transparent',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      注文伺書({idx + 1})
+                    </button>
+                  ))}
+                </div>
+
+                {/* PDFプレビュー */}
+                <div style={{ flex: 1, overflow: 'auto', padding: '1rem' }}>
+                  <div style={{ backgroundColor: '#f0f2f7', borderRadius: '0.5rem', height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <iframe
+                      src="/注文伺書（データ消し・サンプルデータ）.pdf"
+                      style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.5rem' }}
+                      title={`注文伺書(${activeInquiryTab + 1})`}
+                    />
+                  </div>
+                </div>
+
+                {/* 工事名入力・申請先選択 */}
+                <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #dde5f4', backgroundColor: '#f8f9fa', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '250px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>工事名 <span style={{ color: '#ef4444' }}>*</span></label>
+                    <input
+                      type="text"
+                      value={header.projectName}
+                      onChange={(e) => setHeader((h) => ({ ...h, projectName: e.target.value }))}
+                      placeholder="工事名を入力してください"
+                      style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1, minWidth: '250px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#1a1c20' }}>申請先を選択</label>
+                    <select
+                      value={selectedApprover}
+                      onChange={(e) => setSelectedApprover(e.target.value)}
+                      style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', border: '1px solid #dde5f4', borderRadius: '0.375rem', backgroundColor: '#fff', boxSizing: 'border-box' }}
+                    >
+                      {approvers.map((approver) => (
+                        <option key={approver.id} value={approver.id}>{approver.name}（{approver.department}）</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #dde5f4', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              {isSubmitted ? (
+                <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={handleCloseModal}>閉じる</button>
+              ) : (
+                <>
+                  <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: 'transparent', border: '1px solid #dde5f4', color: '#686e78', borderRadius: '0.375rem', cursor: 'pointer' }} onClick={handleCloseModal}>キャンセル</button>
+                  <button style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: isSubmitting ? '#9ca3af' : '#10b981', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: isSubmitting ? 'not-allowed' : 'pointer' }} onClick={handleSubmit} disabled={isSubmitting || !selectedApprover}>
+                    {isSubmitting ? '申請中...' : '申請する'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
-
-      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '1.5rem 24px' }}>
-        {/* 基本情報 */}
-        <div style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1a1c20' }}>注文書情報</h2>
-          </div>
-          <div style={{ padding: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-              <div>
-                <label style={labelStyle}>注文書No.</label>
-                <div style={valueStyle}>{currentOrder.header.orderNo || '-'}</div>
-              </div>
-              <div>
-                <label style={labelStyle}>注文日</label>
-                <div style={valueStyle}>{currentOrder.header.orderDate || '-'}</div>
-              </div>
-              <div>
-                <label style={labelStyle}>発注先</label>
-                <div style={valueStyle}>{currentOrder.header.vendor || '-'}</div>
-              </div>
-              <div>
-                <label style={labelStyle}>工事名</label>
-                <div style={valueStyle}>{currentOrder.header.project || '-'}</div>
-              </div>
-              <div>
-                <label style={labelStyle}>件名</label>
-                <div style={valueStyle}>{currentOrder.header.subject || '-'}</div>
-              </div>
-              <div>
-                <label style={labelStyle}>部署</label>
-                <div style={valueStyle}>{currentOrder.header.dept || '-'}</div>
-              </div>
-              <div>
-                <label style={labelStyle}>契約期間（開始）</label>
-                <div style={valueStyle}>{currentOrder.header.contractFrom || '-'}</div>
-              </div>
-              <div>
-                <label style={labelStyle}>契約期間（終了）</label>
-                <div style={valueStyle}>{currentOrder.header.contractTo || '-'}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 発注明細 */}
-        <div style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1a1c20' }}>発注明細</h2>
-          </div>
-          <div style={{ padding: '1rem', overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', color: '#1a1c20' }}>No.</th>
-                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', color: '#1a1c20' }}>工種</th>
-                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', color: '#1a1c20' }}>税区分</th>
-                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', color: '#1a1c20' }}>実行予算</th>
-                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', color: '#1a1c20' }}>契約金額</th>
-                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', color: '#1a1c20' }}>契約消費税</th>
-                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'right', border: '1px solid #dde5f4', color: '#1a1c20' }}>予算残</th>
-                  <th style={{ padding: '0.5rem', backgroundColor: '#f8f9fa', fontWeight: 600, textAlign: 'left', border: '1px solid #dde5f4', color: '#1a1c20' }}>メーカー</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentOrder.rows.map((row, idx) => {
-                  // 空行はスキップ
-                  if (!row.workType && !row.execBudget && !row.contractAmount) return null;
-                  return (
-                    <tr key={idx}>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}>{row.no || idx + 1}</td>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}>{row.workType}</td>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}>{row.taxType}</td>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{row.execBudget}</td>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{row.contractAmount}</td>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{row.contractTax}</td>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right' }}>{row.budgetRemain}</td>
-                      <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}>{row.maker}</td>
-                    </tr>
-                  );
-                })}
-                {/* 合計行 */}
-                <tr style={{ backgroundColor: '#f8f9fa' }}>
-                  <td colSpan={3} style={{ padding: '0.5rem', border: '1px solid #dde5f4', fontWeight: 700 }}>合計</td>
-                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right', fontWeight: 700 }}>{formatNum(totals.execBudget)}</td>
-                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right', fontWeight: 700 }}>{formatNum(totals.contractAmount)}</td>
-                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right', fontWeight: 700 }}>{formatNum(totals.contractTax)}</td>
-                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4', textAlign: 'right', fontWeight: 700 }}>{formatNum(totals.budgetRemain)}</td>
-                  <td style={{ padding: '0.5rem', border: '1px solid #dde5f4' }}></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* 発注条件 */}
-        <div style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#1a1c20' }}>発注条件</h2>
-          </div>
-          <div style={{ padding: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-              <div>
-                <label style={labelStyle}>支払条件</label>
-                <div style={valueStyle}>{currentOrder.vendorForm.paymentType || '-'}</div>
-              </div>
-              <div>
-                <label style={labelStyle}>支払月</label>
-                <div style={valueStyle}>{currentOrder.vendorForm.paymentMonthType || '-'}</div>
-              </div>
-              <div>
-                <label style={labelStyle}>締日</label>
-                <div style={valueStyle}>{currentOrder.vendorForm.deadlineDay ? `${currentOrder.vendorForm.deadlineDay}日` : '-'}</div>
-              </div>
-            </div>
-            {currentOrder.vendorForm.specialNote && (
-              <div style={{ marginTop: '1rem' }}>
-                <label style={labelStyle}>特記事項</label>
-                <div style={{ ...valueStyle, whiteSpace: 'pre-wrap' }}>{currentOrder.vendorForm.specialNote}</div>
-              </div>
-            )}
-            {currentOrder.vendorForm.orderComment && (
-              <div style={{ marginTop: '1rem' }}>
-                <label style={labelStyle}>備考</label>
-                <div style={{ ...valueStyle, whiteSpace: 'pre-wrap' }}>{currentOrder.vendorForm.orderComment}</div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* データがない場合 */}
-        {currentOrder.rows.every(row => !row.workType && !row.execBudget && !row.contractAmount) && (
-          <div style={{ ...cardStyle, padding: '2rem', textAlign: 'center', color: '#686e78' }}>
-            外注発注にデータがありません。
-            <button
-              onClick={() => router.push('/order-contract')}
-              style={{ marginLeft: '0.5rem', color: '#0d56c9', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
-            >
-              外注発注を入力する →
-            </button>
-          </div>
-        )}
-      </main>
     </div>
   );
 }

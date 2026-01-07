@@ -67,7 +67,7 @@ export default function PortalPage() {
               alt="川崎設備工業"
               width={80}
               height={80}
-              style={{ objectFit: 'contain' }}
+              style={{ objectFit: 'contain', transform: 'scaleX(-1)' }}
             />
           </div>
           <h1 style={{
